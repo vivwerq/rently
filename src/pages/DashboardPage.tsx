@@ -1,20 +1,43 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Package, ShieldCheck, HardDrive, 
   ExternalLink, Trash2, Edit3, PauseCircle, PlayCircle, Plus, 
   AlertCircle, CheckCircle2, Eye, MessageSquare, TrendingUp,
-  Download, RefreshCw, Search
+  Download, RefreshCw, Search, KeyRound, Clock, Phone, MapPin
 } from 'lucide-react';
 import { Button, Breadcrumbs } from '../components/ui';
 import { useAuth } from '../context/useAuth';
 import { listingManagerService } from '../services/listingManagerService';
 import type { ListingItem } from '../data/mockData';
 import { StandardUserVerificationModal } from '../components/auth/StandardUserVerificationModal';
+import { apiClient, type SellerQueueResponse } from '../services/apiClient';
+import { getStoredOrders, updateOrderStatus } from '../utils/orderStorage';
 
 interface DashboardPageProps {
   onNavigate: (path: string) => void;
   onOpenStudentModal: () => void;
   onOpenLocationModal?: () => void;
+}
+
+function getLocalQueueFallback(): SellerQueueResponse {
+  const stored = getStoredOrders();
+  const pendingHandover = stored.filter(o => o.status === 'CONFIRMED');
+  const activeRentals = stored.filter(o => o.status === 'ACTIVE_TRIP' || o.status === 'HANDOVER_IN_PROGRESS');
+  const completed = stored.filter(o => o.status === 'COMPLETED');
+  return {
+    success: true,
+    timestamp: new Date().toISOString(),
+    queueSummary: {
+      pendingHandoverCount: pendingHandover.length,
+      activeRentalsCount: activeRentals.length,
+      completedCount: completed.length,
+      totalActiveValue: activeRentals.reduce((sum, o) => sum + o.totalPayableNow, 0),
+      totalEscrowDeposits: activeRentals.reduce((sum, o) => sum + o.securityDeposit, 0)
+    },
+    pendingHandover,
+    activeRentals,
+    completed
+  };
 }
 
 export const DashboardPage: React.FC<DashboardPageProps> = ({
@@ -24,7 +47,17 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   const { profile, updateUserProfile } = useAuth();
   
   // Tab State
-  const [activeTab, setActiveTab] = useState<'LISTINGS' | 'PROFILE' | 'STORAGE' | 'ANALYTICS'>('LISTINGS');
+  const [activeTab, setActiveTab] = useState<'LISTINGS' | 'ORDERS' | 'PROFILE' | 'STORAGE' | 'ANALYTICS'>('LISTINGS');
+
+  // Seller Order Fulfillment & Handover State
+  const [sellerQueue, setSellerQueue] = useState<SellerQueueResponse | null>(null);
+  const [isLoadingQueue, setIsLoadingQueue] = useState(false);
+  const [otpInputs, setOtpInputs] = useState<Record<string, string>>({});
+  const [verifyingOrderId, setVerifyingOrderId] = useState<string | null>(null);
+  const [completingOrderId, setCompletingOrderId] = useState<string | null>(null);
+  const [damageDeductions, setDamageDeductions] = useState<Record<string, number>>({});
+  const [returnNotes, setReturnNotes] = useState<Record<string, string>>({});
+  const [handoverFeedback, setHandoverFeedback] = useState<{ orderId: string; msg: string; type: 'success' | 'error' } | null>(null);
 
   // Listings State initialized directly from service
   const [listings, setListings] = useState<ListingItem[]>(() => listingManagerService.getAllUserListings());
@@ -57,6 +90,74 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
     setFeedbackToast({ msg, type });
     setTimeout(() => setFeedbackToast(null), 4000);
+  };
+
+  const fetchSellerQueue = async () => {
+    setIsLoadingQueue(true);
+    const queueData = await apiClient.getSellerOrderQueue({
+      operatorName: profile?.displayName || undefined
+    });
+    if (queueData) {
+      setSellerQueue(queueData);
+    } else {
+      setSellerQueue(getLocalQueueFallback());
+    }
+    setIsLoadingQueue(false);
+  };
+
+  useEffect(() => {
+    let isMounted = true;
+    if (activeTab === 'ORDERS') {
+      apiClient.getSellerOrderQueue({ operatorName: profile?.displayName || undefined })
+        .then(queueData => {
+          if (!isMounted) return;
+          if (queueData) {
+            setSellerQueue(queueData);
+          } else {
+            setSellerQueue(getLocalQueueFallback());
+          }
+        });
+    }
+    return () => { isMounted = false; };
+  }, [activeTab, profile?.displayName]);
+
+  const handleVerifyOtp = async (orderId: string) => {
+    const otp = otpInputs[orderId]?.trim();
+    if (!otp || otp.length < 6) {
+      setHandoverFeedback({ orderId, msg: 'Please enter the 6-digit handover secret OTP.', type: 'error' });
+      return;
+    }
+
+    setVerifyingOrderId(orderId);
+    setHandoverFeedback(null);
+
+    const res = await apiClient.verifyHandoverOtp(orderId, otp, profile?.displayName);
+    setVerifyingOrderId(null);
+
+    if (res.success) {
+      setHandoverFeedback({ orderId, msg: 'Handover verified! Asset handed over and rental is now ACTIVE.', type: 'success' });
+      updateOrderStatus(orderId, 'ACTIVE_TRIP');
+      fetchSellerQueue();
+    } else {
+      setHandoverFeedback({ orderId, msg: res.error || 'Invalid OTP code. Please check with renter.', type: 'error' });
+    }
+  };
+
+  const handleCompleteReturn = async (orderId: string) => {
+    setCompletingOrderId(orderId);
+    const damageDeduction = damageDeductions[orderId] || 0;
+    const notes = returnNotes[orderId] || 'Inspection verified post-trip. Zero damage.';
+
+    const res = await apiClient.completeOrderReturn(orderId, damageDeduction, notes);
+    setCompletingOrderId(null);
+
+    if (res.success) {
+      showToast(`Return accepted! Escrow deposit of ₹${(res.depositRefund || 0).toLocaleString()} auto-refunded to customer.`);
+      updateOrderStatus(orderId, 'COMPLETED');
+      fetchSellerQueue();
+    } else {
+      showToast(res.error || 'Failed to complete return.', 'error');
+    }
   };
 
   // Analytics calculation
@@ -375,6 +476,16 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
         >
           <Package size={16} />
           <span>My Listings ({listings.length})</span>
+        </button>
+
+        <button
+          type="button"
+          className={`category-chip-btn ${activeTab === 'ORDERS' ? 'active' : ''}`}
+          onClick={() => setActiveTab('ORDERS')}
+          style={{ padding: '0.65rem 1.15rem', fontSize: '0.86rem' }}
+        >
+          <KeyRound size={16} />
+          <span>Fulfillment & Handover Queue {sellerQueue && sellerQueue.queueSummary.pendingHandoverCount > 0 ? `(${sellerQueue.queueSummary.pendingHandoverCount})` : ''}</span>
         </button>
 
         <button
@@ -723,7 +834,378 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
       )}
 
       {/* =========================================================================
-          TAB 2: PROFILE & VERIFICATION HUB
+          TAB 2: SELLER FULFILLMENT & HANDOVER OTP DESK (PHASE 4)
+          ========================================================================= */}
+      {activeTab === 'ORDERS' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          {/* Header & Quick Sync */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+            <div>
+              <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+                Live Fulfillment & Handover Desk
+              </h2>
+              <p style={{ fontSize: '0.86rem', color: 'var(--text-secondary)', marginTop: '0.3rem', margin: 0 }}>
+                Verify 6-digit customer handover OTPs at Tri-City pickup spots and release segregated escrow deposits on return.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              leftIcon={<RefreshCw size={14} className={isLoadingQueue ? 'animate-spin' : ''} />}
+              onClick={fetchSellerQueue}
+              disabled={isLoadingQueue}
+            >
+              Refresh Queue
+            </Button>
+          </div>
+
+          {/* Metric Summary Cards */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+            <div style={{ background: 'var(--surface-primary)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '1.15rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Awaiting Handover</span>
+                <Clock size={16} color="var(--accent-amber)" />
+              </div>
+              <div style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--accent-amber)' }}>
+                {sellerQueue?.queueSummary.pendingHandoverCount ?? 0}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginTop: '2px' }}>
+                Requires 6-digit renter OTP match
+              </div>
+            </div>
+
+            <div style={{ background: 'var(--surface-primary)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '1.15rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Active Rentals</span>
+                <CheckCircle2 size={16} color="var(--accent-emerald)" />
+              </div>
+              <div style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--accent-emerald)' }}>
+                {sellerQueue?.queueSummary.activeRentalsCount ?? 0}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginTop: '2px' }}>
+                Currently on road / with customer
+              </div>
+            </div>
+
+            <div style={{ background: 'var(--surface-primary)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '1.15rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Active Asset Value</span>
+                <TrendingUp size={16} color="var(--accent-blue)" />
+              </div>
+              <div style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                ₹{(sellerQueue?.queueSummary.totalActiveValue ?? 0).toLocaleString()}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginTop: '2px' }}>
+                Total in-transit booking fees
+              </div>
+            </div>
+
+            <div style={{ background: 'var(--surface-primary)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '1.15rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Escrow Deposits Held</span>
+                <ShieldCheck size={16} color="var(--accent-emerald)" />
+              </div>
+              <div style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--accent-emerald)' }}>
+                ₹{(sellerQueue?.queueSummary.totalEscrowDeposits ?? 0).toLocaleString()}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginTop: '2px' }}>
+                Segregated in double-entry trust
+              </div>
+            </div>
+          </div>
+
+          {/* Section 1: Pending Handover Orders (Awaiting OTP) */}
+          <div style={{ background: 'var(--surface-primary)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '1.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
+              <div>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <KeyRound size={18} color="var(--accent-amber)" />
+                  Pending Handovers ({sellerQueue?.pendingHandover.length ?? 0})
+                </h3>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '0.2rem 0 0' }}>
+                  When meeting the customer at campus/hub, ask them for their 6-digit handover OTP to unlock the asset.
+                </p>
+              </div>
+            </div>
+
+            {(!sellerQueue?.pendingHandover || sellerQueue.pendingHandover.length === 0) ? (
+              <div style={{ textAlign: 'center', padding: '2.5rem 1rem', background: 'var(--surface-secondary)', borderRadius: 'var(--radius-md)', border: '1px dashed var(--border-subtle)' }}>
+                <CheckCircle2 size={36} color="var(--accent-emerald)" style={{ margin: '0 auto 0.75rem' }} />
+                <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '1rem' }}>No Handovers Pending</div>
+                <p style={{ fontSize: '0.825rem', color: 'var(--text-secondary)', margin: '0.25rem 0 0' }}>
+                  All confirmed reservations have been handed over. New bookings will appear here instantly.
+                </p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {sellerQueue.pendingHandover.map((order) => {
+                  const feedback = handoverFeedback?.orderId === order.id ? handoverFeedback : null;
+                  const enteredOtp = otpInputs[order.id] || '';
+
+                  return (
+                    <div 
+                      key={order.id}
+                      style={{ 
+                        background: 'var(--surface-secondary)', 
+                        border: '1px solid var(--border-subtle)', 
+                        borderRadius: 'var(--radius-md)', 
+                        padding: '1.25rem',
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                        gap: '1.25rem',
+                        alignItems: 'center'
+                      }}
+                    >
+                      {/* Left: Item & Renter details */}
+                      <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                        <img 
+                          src={order.primaryImage || 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=200&q=80'} 
+                          alt={order.title} 
+                          style={{ width: '72px', height: '72px', borderRadius: '10px', objectFit: 'cover', flexShrink: 0, border: '1px solid var(--border-subtle)' }}
+                        />
+                        <div>
+                          <div style={{ fontSize: '0.75rem', fontFamily: 'var(--font-mono)', color: 'var(--accent-amber)', fontWeight: 700 }}>
+                            ORDER: {order.id}
+                          </div>
+                          <h4 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', margin: '2px 0 4px' }}>
+                            {order.title}
+                          </h4>
+                          <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <MapPin size={12} color="var(--accent-emerald)" />
+                            <span>{order.handoverLocation}</span>
+                          </div>
+                          {order.buyerContact && (
+                            <div style={{ fontSize: '0.78rem', color: 'var(--text-tertiary)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <Phone size={12} />
+                              <span>{order.buyerContact}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Center: Financials & Escrow Badge */}
+                      <div style={{ background: 'var(--surface-primary)', padding: '0.85rem 1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', fontSize: '0.825rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                          <span style={{ color: 'var(--text-secondary)' }}>Total Paid</span>
+                          <span style={{ fontWeight: 800, color: 'var(--text-primary)' }}>₹{order.totalPayableNow.toLocaleString()}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                          <span style={{ color: 'var(--text-secondary)' }}>Escrow Deposit</span>
+                          <span style={{ fontWeight: 700, color: 'var(--accent-amber)' }}>₹{order.securityDeposit.toLocaleString()}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px', paddingTop: '6px', borderTop: '1px dashed var(--border-subtle)', fontSize: '0.75rem' }}>
+                          <span style={{ color: 'var(--accent-emerald)', fontWeight: 600 }}>🔒 Escrow Trust Segregated</span>
+                          <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-tertiary)' }}>{order.rentalDuration || '2 Days'}</span>
+                        </div>
+                      </div>
+
+                      {/* Right: OTP Verification Form */}
+                      <div style={{ background: 'rgba(245, 158, 11, 0.06)', border: '1px solid rgba(245, 158, 11, 0.25)', borderRadius: 'var(--radius-md)', padding: '1rem' }}>
+                        <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--accent-amber)', display: 'block', marginBottom: '0.4rem' }}>
+                          🔑 Enter Customer Secret OTP
+                        </label>
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          <input
+                            type="text"
+                            maxLength={6}
+                            placeholder="••••••"
+                            value={enteredOtp}
+                            onChange={(e) => {
+                              const val = e.target.value.replace(/\D/g, '').slice(0, 6);
+                              setOtpInputs(prev => ({ ...prev, [order.id]: val }));
+                            }}
+                            style={{
+                              flex: 1,
+                              background: 'var(--surface-primary)',
+                              border: '1px solid var(--border-standard)',
+                              borderRadius: 'var(--radius-md)',
+                              color: 'var(--text-primary)',
+                              fontFamily: 'var(--font-mono)',
+                              fontSize: '1.15rem',
+                              fontWeight: 800,
+                              letterSpacing: '4px',
+                              textAlign: 'center',
+                              padding: '0.4rem'
+                            }}
+                          />
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            disabled={enteredOtp.length < 6 || verifyingOrderId === order.id}
+                            onClick={() => handleVerifyOtp(order.id)}
+                            style={{ background: 'var(--accent-amber)', color: '#000', fontWeight: 700, border: 'none' }}
+                          >
+                            {verifyingOrderId === order.id ? 'Verifying...' : 'Match OTP'}
+                          </Button>
+                        </div>
+
+                        {feedback && (
+                          <div style={{
+                            marginTop: '0.5rem',
+                            fontSize: '0.75rem',
+                            color: feedback.type === 'success' ? 'var(--accent-emerald)' : '#ef4444',
+                            fontWeight: 600
+                          }}>
+                            {feedback.msg}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Section 2: Active Rentals & Return Handling */}
+          <div style={{ background: 'var(--surface-primary)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '1.5rem' }}>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <CheckCircle2 size={18} color="var(--accent-emerald)" />
+              Active on Road & Return Inspection Desk ({sellerQueue?.activeRentals.length ?? 0})
+            </h3>
+
+            {(!sellerQueue?.activeRentals || sellerQueue.activeRentals.length === 0) ? (
+              <div style={{ textAlign: 'center', padding: '2rem 1rem', background: 'var(--surface-secondary)', borderRadius: 'var(--radius-md)', border: '1px dashed var(--border-subtle)' }}>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>
+                  No active vehicles or equipment currently out with customers.
+                </p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {sellerQueue.activeRentals.map((order) => (
+                  <div 
+                    key={order.id}
+                    style={{ 
+                      background: 'var(--surface-secondary)', 
+                      border: '1px solid rgba(16, 185, 129, 0.25)', 
+                      borderRadius: 'var(--radius-md)', 
+                      padding: '1.25rem',
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                      gap: '1.25rem',
+                      alignItems: 'center'
+                    }}
+                  >
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--accent-emerald)', display: 'inline-block' }} />
+                        <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--accent-emerald)', textTransform: 'uppercase' }}>Active In Use</span>
+                        <span style={{ fontSize: '0.75rem', fontFamily: 'var(--font-mono)', color: 'var(--text-tertiary)' }}>· {order.id}</span>
+                      </div>
+                      <h4 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 4px' }}>
+                        {order.title}
+                      </h4>
+                      <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                        Renter: <strong>{order.buyerContact || 'Campus Customer'}</strong>
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginTop: '2px' }}>
+                        Duration: {order.rentalDuration || 'Active'} · Pickup Spot: {order.handoverLocation}
+                      </div>
+                    </div>
+
+                    {/* Return & Escrow Refund Action */}
+                    <div style={{ background: 'var(--surface-primary)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.65rem' }}>
+                        <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-primary)' }}>Return & Deposit Release</span>
+                        <span style={{ fontSize: '0.78rem', color: 'var(--accent-amber)', fontWeight: 700 }}>
+                          Escrow: ₹{order.securityDeposit.toLocaleString()}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                        <input
+                          type="number"
+                          min={0}
+                          max={order.securityDeposit}
+                          placeholder="Damage deduction (₹0)"
+                          value={damageDeductions[order.id] || ''}
+                          onChange={(e) => {
+                            const val = Math.max(0, parseInt(e.target.value) || 0);
+                            setDamageDeductions(prev => ({ ...prev, [order.id]: val }));
+                          }}
+                          style={{
+                            width: '130px',
+                            background: 'var(--surface-secondary)',
+                            border: '1px solid var(--border-standard)',
+                            borderRadius: 'var(--radius-md)',
+                            color: 'var(--text-primary)',
+                            fontSize: '0.78rem',
+                            padding: '0.4rem 0.6rem'
+                          }}
+                        />
+                        <input
+                          type="text"
+                          placeholder="Inspection notes (e.g. clean condition)"
+                          value={returnNotes[order.id] || ''}
+                          onChange={(e) => {
+                            const text = e.target.value;
+                            setReturnNotes(prev => ({ ...prev, [order.id]: text }));
+                          }}
+                          style={{
+                            flex: 1,
+                            background: 'var(--surface-secondary)',
+                            border: '1px solid var(--border-standard)',
+                            borderRadius: 'var(--radius-md)',
+                            color: 'var(--text-primary)',
+                            fontSize: '0.78rem',
+                            padding: '0.4rem 0.6rem'
+                          }}
+                        />
+                      </div>
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        fullWidth
+                        disabled={completingOrderId === order.id}
+                        onClick={() => handleCompleteReturn(order.id)}
+                        style={{ background: 'linear-gradient(135deg, #059669 0%, #047857 100%)' }}
+                      >
+                        {completingOrderId === order.id ? 'Processing Refund...' : `Accept Return & Release Deposit (₹${(order.securityDeposit - (damageDeductions[order.id] || 0)).toLocaleString()})`}
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Section 3: Completed & Settled History */}
+          {sellerQueue?.completed && sellerQueue.completed.length > 0 && (
+            <div style={{ background: 'var(--surface-primary)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '1.5rem' }}>
+              <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-secondary)', margin: '0 0 0.85rem' }}>
+                Completed & Settled Bookings ({sellerQueue.completed.length})
+              </h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                {sellerQueue.completed.slice(0, 5).map((order) => (
+                  <div 
+                    key={order.id} 
+                    style={{ 
+                      display: 'flex', 
+                      justifyContent: 'space-between', 
+                      alignItems: 'center', 
+                      padding: '0.75rem 1rem', 
+                      background: 'var(--surface-secondary)', 
+                      borderRadius: 'var(--radius-md)',
+                      fontSize: '0.825rem'
+                    }}
+                  >
+                    <div>
+                      <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{order.title}</span>
+                      <span style={{ color: 'var(--text-tertiary)', marginLeft: '8px', fontFamily: 'var(--font-mono)' }}>{order.id}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <span style={{ color: 'var(--accent-emerald)', fontWeight: 600 }}>✓ Escrow Deposit Settled</span>
+                      <span style={{ fontWeight: 800, color: 'var(--text-primary)' }}>₹{order.totalPayableNow.toLocaleString()}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* =========================================================================
+          TAB 3: PROFILE & VERIFICATION HUB
           ========================================================================= */}
       {activeTab === 'PROFILE' && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>

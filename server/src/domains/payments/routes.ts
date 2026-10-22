@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import Razorpay from 'razorpay';
 import crypto from 'crypto';
-import { dbStore, LOCALITIES, type ServerOrder } from '../../core/db.ts';
+import { dbStore, LOCALITIES, calculateDistanceKm, type ServerOrder } from '../../core/db.ts';
 import { ledgerEngine } from '../../core/ledger.ts';
 import { securityService } from '../../core/security.ts';
 
@@ -11,8 +11,11 @@ interface CreatePaymentOrderBody {
   days?: number;
   tenure?: number;
   deliveryType?: 'SELF_PICKUP' | 'DOORSTEP' | 'CAMPUS_GATE' | 'PG_DOORSTEP';
+  deliveryCoords?: { lat: number; lng: number };
+  localityId?: string;
   studentDiscountApplied?: boolean;
   userId?: string;
+  operatorId?: string;
 }
 
 interface VerifyPaymentBody {
@@ -78,6 +81,8 @@ export const paymentRoutes: FastifyPluginAsync = async (fastify) => {
       days = 1,
       tenure,
       deliveryType = 'SELF_PICKUP',
+      deliveryCoords,
+      localityId,
       studentDiscountApplied = true
     } = request.body || {};
 
@@ -89,6 +94,23 @@ export const paymentRoutes: FastifyPluginAsync = async (fastify) => {
     const listing = dbStore.getListingById(listingId, defaultLoc);
     if (!listing) {
       return reply.code(404).send({ error: `Listing '${listingId}' not found.` });
+    }
+
+    // Enforce Hyperlocal Delivery Radius (Max 45km)
+    if (deliveryType === 'DOORSTEP' || deliveryType === 'PG_DOORSTEP') {
+      let targetCoords = deliveryCoords;
+      if (!targetCoords && localityId) {
+        const found = LOCALITIES.find(l => l.id === localityId);
+        if (found) targetCoords = found.coordinates;
+      }
+      if (targetCoords) {
+        const dist = calculateDistanceKm(listing.coordinates, targetCoords);
+        if (dist > 45) {
+          return reply.code(422).send({
+            error: `Delivery location is ${dist} km away, which exceeds our 45 km operational radius for Chandigarh Tricity (Chandigarh, Mohali, Kharar, Zirakpur). Please select campus pickup.`
+          });
+        }
+      }
     }
 
     // Verify hold validity if provided

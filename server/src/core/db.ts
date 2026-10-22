@@ -88,6 +88,9 @@ export interface ServerOrder {
   paymentId?: string;
   paymentStatus?: 'PAID' | 'ESCROW_HELD' | 'REFUNDED';
   razorpayOrderId?: string;
+  operatorId?: string;
+  handoverVerifiedAt?: string;
+  completedAt?: string;
 }
 
 export interface InspectionRecord {

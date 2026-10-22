@@ -116,6 +116,21 @@ export interface VerifyPaymentResponse {
   };
 }
 
+export interface SellerQueueResponse {
+  success: boolean;
+  timestamp: string;
+  queueSummary: {
+    pendingHandoverCount: number;
+    activeRentalsCount: number;
+    completedCount: number;
+    totalActiveValue: number;
+    totalEscrowDeposits: number;
+  };
+  pendingHandover: any[];
+  activeRentals: any[];
+  completed: any[];
+}
+
 const API_BASE = '/api';
 
 export const apiClient = {
@@ -304,6 +319,49 @@ export const apiClient = {
           status: 'CONFIRMED'
         }
       };
+    }
+  },
+
+  async getSellerOrderQueue(params?: { operatorId?: string; operatorName?: string }): Promise<SellerQueueResponse | null> {
+    try {
+      const search = new URLSearchParams();
+      if (params?.operatorId) search.set('operatorId', params.operatorId);
+      if (params?.operatorName) search.set('operatorName', params.operatorName);
+      const res = await fetch(`${API_BASE}/v1/bookings/seller/queue?${search.toString()}`);
+      if (!res.ok) return null;
+      return await res.json();
+    } catch {
+      return null;
+    }
+  },
+
+  async verifyHandoverOtp(orderId: string, otp: string, inspectorName?: string): Promise<{ success: boolean; message?: string; error?: string; order?: any }> {
+    try {
+      const res = await fetch(`${API_BASE}/v1/bookings/verify-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId, otp, inspectorName })
+      });
+      const data = await res.json();
+      if (!res.ok) return { success: false, error: data.error || 'Failed to verify OTP' };
+      return data;
+    } catch {
+      return { success: false, error: 'Could not contact backend server.' };
+    }
+  },
+
+  async completeOrderReturn(orderId: string, damageDeduction?: number, returnNotes?: string): Promise<{ success: boolean; message?: string; error?: string; order?: any; depositRefund?: number }> {
+    try {
+      const res = await fetch(`${API_BASE}/v1/bookings/complete-return`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId, damageDeduction, returnNotes })
+      });
+      const data = await res.json();
+      if (!res.ok) return { success: false, error: data.error || 'Failed to complete return' };
+      return data;
+    } catch {
+      return { success: false, error: 'Could not contact backend server.' };
     }
   }
 };

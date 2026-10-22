@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify';
-import { dbStore, LOCALITIES, type ServerOrder } from '../../core/db.ts';
+import { dbStore, LOCALITIES, calculateDistanceKm, type ServerOrder } from '../../core/db.ts';
 import { ledgerEngine } from '../../core/ledger.ts';
 import { securityService } from '../../core/security.ts';
 
@@ -8,6 +8,8 @@ interface QuoteRequestBody {
   days?: number;
   userId?: string;
   localityId?: string;
+  deliveryType?: 'SELF_PICKUP' | 'DOORSTEP' | 'CAMPUS_GATE' | 'PG_DOORSTEP';
+  deliveryCoords?: { lat: number; lng: number };
 }
 
 interface HoldRequestBody {
@@ -23,17 +25,32 @@ interface ConfirmBookingBody {
   renterName: string;
   renterPhone: string;
   userId?: string;
+  operatorId?: string;
   days?: number;
   startDate?: string;
   endDate?: string;
   handoverLocation?: string;
   customText?: string;
+  deliveryType?: 'SELF_PICKUP' | 'DOORSTEP' | 'CAMPUS_GATE' | 'PG_DOORSTEP';
+  deliveryCoords?: { lat: number; lng: number };
+}
+
+interface VerifyOtpBody {
+  orderId: string;
+  otp: string;
+  inspectorName?: string;
+}
+
+interface CompleteReturnBody {
+  orderId: string;
+  damageDeduction?: number;
+  returnNotes?: string;
 }
 
 export const bookingRoutes: FastifyPluginAsync = async (fastify) => {
   // Calculate itemized price quote
   fastify.post<{ Body: QuoteRequestBody }>('/quote', async (request, reply) => {
-    const { listingId, days = 1, userId, localityId: _localityId } = request.body || {};
+    const { listingId, days = 1, userId, localityId, deliveryType, deliveryCoords } = request.body || {};
     if (!listingId) {
       return reply.code(400).send({ error: 'listingId is required for quote calculation.' });
     }
@@ -42,6 +59,25 @@ export const bookingRoutes: FastifyPluginAsync = async (fastify) => {
     const listing = dbStore.getListingById(listingId, defaultLoc);
     if (!listing) {
       return reply.code(404).send({ error: `Listing '${listingId}' not found.` });
+    }
+
+    // Enforce Hyperlocal Delivery Radius (Max 45km)
+    let deliveryFee = 0;
+    if (deliveryType === 'DOORSTEP' || deliveryType === 'PG_DOORSTEP') {
+      let targetCoords = deliveryCoords;
+      if (!targetCoords && localityId) {
+        const found = LOCALITIES.find(l => l.id === localityId);
+        if (found) targetCoords = found.coordinates;
+      }
+      if (targetCoords) {
+        const dist = calculateDistanceKm(listing.coordinates, targetCoords);
+        if (dist > 45) {
+          return reply.code(422).send({
+            error: `Delivery location is ${dist} km away, which exceeds our 45 km operational radius for Chandigarh Tricity (Chandigarh, Mohali, Kharar, Zirakpur). Please select campus pickup.`
+          });
+        }
+      }
+      deliveryFee = 250;
     }
 
     const safeDays = Math.max(1, days);
@@ -56,9 +92,6 @@ export const bookingRoutes: FastifyPluginAsync = async (fastify) => {
     // Platform fee (5% or min ₹99 for cars, ₹49 for others)
     const platformFee = listing.category === 'CAR' ? Math.max(149, Math.round(baseRent * 0.05)) : 49;
     const gstTax = Math.round((baseRent + platformFee) * 0.05); // 5% GST on transport/rental service
-
-    // Campus gate handover fee is ₹0
-    const deliveryFee = 0;
     const totalPayableNow = baseRent + finalDeposit + platformFee + gstTax + deliveryFee;
 
     return reply.send({
@@ -236,6 +269,116 @@ export const bookingRoutes: FastifyPluginAsync = async (fastify) => {
         supplierPayableAllocated: supplierShare,
         platformFeeRetained: platformFee
       }
+    });
+  });
+
+  // Seller & Operator Live Order Queue
+  fastify.get<{ Querystring: { operatorId?: string; operatorName?: string } }>('/seller/queue', async (request, reply) => {
+    const { operatorId, operatorName } = request.query || {};
+    let allOrders = dbStore.getOrders();
+
+    if (operatorId) {
+      allOrders = allOrders.filter(o => o.operatorId === operatorId);
+    } else if (operatorName) {
+      allOrders = allOrders.filter(o => o.operatorName?.toLowerCase().includes(operatorName.toLowerCase()));
+    }
+
+    const pendingHandover = allOrders.filter(o => o.status === 'CONFIRMED');
+    const activeRentals = allOrders.filter(o => o.status === 'ACTIVE_TRIP' || o.status === 'HANDOVER_IN_PROGRESS');
+    const completed = allOrders.filter(o => o.status === 'COMPLETED');
+
+    const totalActiveValue = activeRentals.reduce((sum, o) => sum + o.totalPayableNow, 0);
+    const totalEscrowDeposits = activeRentals.reduce((sum, o) => sum + o.securityDeposit, 0);
+
+    return reply.send({
+      success: true,
+      timestamp: new Date().toISOString(),
+      queueSummary: {
+        pendingHandoverCount: pendingHandover.length,
+        activeRentalsCount: activeRentals.length,
+        completedCount: completed.length,
+        totalActiveValue,
+        totalEscrowDeposits
+      },
+      pendingHandover,
+      activeRentals,
+      completed
+    });
+  });
+
+  // Verify Handover Secret OTP
+  fastify.post<{ Body: VerifyOtpBody }>('/verify-otp', async (request, reply) => {
+    const { orderId, otp, inspectorName } = request.body || {};
+    if (!orderId || !otp) {
+      return reply.code(400).send({ error: 'orderId and otp are required for verification.' });
+    }
+
+    const order = dbStore.getOrderById(orderId);
+    if (!order) {
+      return reply.code(404).send({ error: `Order '${orderId}' not found.` });
+    }
+
+    if (order.status === 'COMPLETED' || order.status === 'CANCELLED') {
+      return reply.code(400).send({ error: `Cannot verify handover: Order is already ${order.status}.` });
+    }
+
+    if (order.handoverOtp.trim() !== otp.trim()) {
+      return reply.code(400).send({
+        success: false,
+        error: 'Invalid handover OTP. Please verify the 6-digit code shown on the customer app.'
+      });
+    }
+
+    // OTP match! Transition to ACTIVE_TRIP
+    order.status = 'ACTIVE_TRIP';
+    order.handoverVerifiedAt = new Date().toISOString();
+    dbStore.saveOrder(order);
+
+    return reply.send({
+      success: true,
+      message: 'Handover OTP successfully matched. Asset handed over and rental is now ACTIVE.',
+      order,
+      verifiedAt: order.handoverVerifiedAt,
+      verifiedBy: inspectorName || order.operatorName || 'Operator'
+    });
+  });
+
+  // Complete Return & Auto-Release Escrow Deposit
+  fastify.post<{ Body: CompleteReturnBody }>('/complete-return', async (request, reply) => {
+    const { orderId, damageDeduction = 0, returnNotes } = request.body || {};
+    if (!orderId) {
+      return reply.code(400).send({ error: 'orderId is required.' });
+    }
+
+    const order = dbStore.getOrderById(orderId);
+    if (!order) {
+      return reply.code(404).send({ error: `Order '${orderId}' not found.` });
+    }
+
+    if (order.status === 'COMPLETED') {
+      return reply.code(400).send({ error: 'Order has already been returned and completed.' });
+    }
+
+    // Escrow deposit refund calculation
+    const safeDeduction = Math.max(0, Math.min(damageDeduction, order.securityDeposit));
+    const depositRefund = Math.max(0, order.securityDeposit - safeDeduction);
+
+    if (depositRefund > 0) {
+      ledgerEngine.recordDepositRefund(orderId, depositRefund);
+    }
+
+    order.status = 'COMPLETED';
+    order.paymentStatus = 'REFUNDED';
+    order.completedAt = new Date().toISOString();
+    dbStore.saveOrder(order);
+
+    return reply.send({
+      success: true,
+      message: 'Vehicle/Equipment return verified. Escrow security deposit refund released.',
+      order,
+      depositRefund,
+      damageDeduction: safeDeduction,
+      returnNotes: returnNotes || 'Standard return check verified with zero disputed damage.'
     });
   });
 
