@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { ListingItem } from '../data/mockData';
-import { ShieldCheck, Car, MapPin, AlertCircle, Clock } from 'lucide-react';
+import { ShieldCheck, Car, MapPin, AlertCircle, Clock, Loader2 } from 'lucide-react';
 import { Modal } from './ui/Modal';
 import { Button } from './ui/Button';
 import { Badge } from './ui/Badge';
+import { apiClient } from '../services/apiClient';
 
 interface CarQuoteModalProps {
   listing: ListingItem;
@@ -16,6 +17,29 @@ export const CarQuoteModal: React.FC<CarQuoteModalProps> = ({ listing, onClose, 
   const [deliveryType, setDeliveryType] = useState<'SELF_PICKUP' | 'DOORSTEP'>('SELF_PICKUP');
   const [studentDiscountApplied, setStudentDiscountApplied] = useState(true);
   const [bookingStep, setBookingStep] = useState<'QUOTE' | 'REQUESTED'>('QUOTE');
+  
+  // Atomic hold state
+  const [activeHoldId, setActiveHoldId] = useState<string | null>(null);
+  const [holdError, setHoldError] = useState<string | null>(null);
+  const [isLocking, setIsLocking] = useState<boolean>(false);
+  const [remainingSeconds, setRemainingSeconds] = useState<number>(900);
+
+  // Dynamic countdown timer when hold is active
+  useEffect(() => {
+    if (bookingStep !== 'REQUESTED' || remainingSeconds <= 0) return;
+
+    const timer = setInterval(() => {
+      setRemainingSeconds(prev => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [bookingStep, remainingSeconds]);
 
   const basePricePerDay = listing.price;
   const baseRentTotal = basePricePerDay * rentalDays;
@@ -28,13 +52,40 @@ export const CarQuoteModal: React.FC<CarQuoteModalProps> = ({ listing, onClose, 
   const dailyKm = listing.carSpecs?.kmLimitDaily || 250;
   const totalIncludedKm = dailyKm * rentalDays + (studentDiscountApplied ? 50 : 0);
 
-  const handleRequestBooking = () => {
-    setBookingStep('REQUESTED');
+  const handleRequestBooking = async () => {
+    setIsLocking(true);
+    setHoldError(null);
+
+    const now = new Date();
+    const startDate = now.toISOString();
+    const endDate = new Date(now.getTime() + rentalDays * 86400000).toISOString();
+
+    const res = await apiClient.acquireHold(listing.id, startDate, endDate);
+    setIsLocking(false);
+
+    if ('error' in res && res.error) {
+      setHoldError(res.error);
+      return;
+    }
+
+    if ('holdId' in res) {
+      setActiveHoldId(res.holdId);
+      setRemainingSeconds(res.ttlSeconds || 900);
+      setBookingStep('REQUESTED');
+    }
+  };
+
+  const handleClose = () => {
+    if (activeHoldId) {
+      apiClient.releaseHold(activeHoldId);
+    }
+    onClose();
   };
 
   const handleSimulateOperatorApproval = () => {
     onStartInspection({
       listingId: listing.id,
+      holdId: activeHoldId,
       title: listing.title,
       rentalDays,
       totalPayableNow,
@@ -48,11 +99,29 @@ export const CarQuoteModal: React.FC<CarQuoteModalProps> = ({ listing, onClose, 
   return (
     <Modal
       isOpen={true}
-      onClose={onClose}
+      onClose={handleClose}
       title={bookingStep === 'QUOTE' ? 'Exact All-in Quote & Booking' : 'Operator Confirmation in Progress'}
       maxWidth="md"
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+        {holdError && (
+          <div style={{
+            background: 'rgba(239, 68, 68, 0.12)',
+            border: '1px solid rgba(239, 68, 68, 0.3)',
+            borderRadius: 'var(--radius-md)',
+            padding: '0.85rem 1rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem',
+            color: '#ef4444',
+            fontSize: '0.875rem'
+          }}>
+            <AlertCircle size={18} style={{ flexShrink: 0 }} />
+            <div>
+              <strong>Hold Conflict:</strong> {holdError}
+            </div>
+          </div>
+        )}
         {bookingStep === 'QUOTE' ? (
           <>
             {/* Vehicle Title & Vetting Badge */}
@@ -230,9 +299,16 @@ export const CarQuoteModal: React.FC<CarQuoteModalProps> = ({ listing, onClose, 
               variant="primary"
               size="lg"
               fullWidth
+              disabled={isLocking}
               onClick={handleRequestBooking}
             >
-              Request Booking (15-Min Operator Confirmation)
+              {isLocking ? (
+                <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center' }}>
+                  <Loader2 size={18} className="animate-spin" /> Acquiring Atomic Hold...
+                </span>
+              ) : (
+                'Request Booking (15-Min Operator Lock)'
+              )}
             </Button>
           </>
         ) : (
@@ -243,37 +319,45 @@ export const CarQuoteModal: React.FC<CarQuoteModalProps> = ({ listing, onClose, 
             </div>
             <div>
               <h4 style={{ fontSize: '1.3rem', color: 'var(--text-primary)', fontWeight: 800, margin: 0 }}>
-                Operator Confirmation Countdown
+                Vehicle Reserved & Hold Active
               </h4>
               <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', marginTop: '0.35rem' }}>
-                {listing.operator?.name} has been notified and must confirm availability within 15 minutes.
+                Exclusive lock acquired. {listing.operator?.name} has been alerted for handover.
               </p>
+              {activeHoldId && (
+                <div style={{ fontSize: '0.75rem', fontFamily: 'var(--font-mono)', color: 'var(--text-tertiary)', marginTop: '0.2rem' }}>
+                  Hold Token: {activeHoldId}
+                </div>
+              )}
             </div>
 
             <div style={{ background: 'var(--surface-secondary)', padding: '1.25rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>Confirmation Deadline Window</div>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '2rem', fontWeight: 800, color: 'var(--accent-emerald)', margin: '0.25rem 0' }}>
-                14:38
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>Hold Expiration Window</div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '2.2rem', fontWeight: 800, color: remainingSeconds < 120 ? '#ef4444' : 'var(--accent-emerald)', margin: '0.25rem 0' }}>
+                {Math.floor(remainingSeconds / 60)}:{(remainingSeconds % 60).toString().padStart(2, '0')}
               </div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                Your payment method is authorized; no charges will be settled if operator declines.
+                {remainingSeconds > 0 
+                  ? 'Vehicle is locked for you; other customers cannot book for these dates.'
+                  : 'Hold has expired. Please close and re-request your dates.'}
               </div>
             </div>
 
             {/* Test simulator badge */}
             <div style={{ background: 'var(--surface-secondary)', border: '1px dashed var(--border-focus)', borderRadius: 'var(--radius-md)', padding: '1rem', textAlign: 'left' }}>
               <div style={{ fontSize: '0.825rem', fontWeight: 700, color: 'var(--border-focus)', marginBottom: '0.35rem' }}>
-                ⚡ Local Prototype Demo Simulation
+                ⚡ Proceed with Verified Hold
               </div>
               <p style={{ fontSize: '0.775rem', color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>
-                Simulate the operator instantly accepting the booking in local browser session to test the joint 6-point inspection and OTP handover flow.
+                Vehicle reservation lock verified. Proceed to digital vehicle walkaround inspection and handover OTP generation.
               </p>
               <Button 
                 variant="primary" 
                 fullWidth
+                disabled={remainingSeconds <= 0}
                 onClick={handleSimulateOperatorApproval}
               >
-                Simulate Operator Accepted → Start Pickup Inspection
+                Proceed to Joint Inspection & Pickup Handover
               </Button>
             </div>
           </div>

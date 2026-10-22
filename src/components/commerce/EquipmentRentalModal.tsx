@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import type { ListingItem } from '../../data/mockData';
-import { ShieldCheck, MapPin, CheckCircle2, Armchair, Sparkles } from 'lucide-react';
+import { ShieldCheck, MapPin, CheckCircle2, Armchair, Sparkles, AlertCircle, Loader2 } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
+import { apiClient } from '../../services/apiClient';
 
 interface EquipmentRentalModalProps {
   listing: ListingItem;
@@ -22,6 +23,8 @@ export const EquipmentRentalModal: React.FC<EquipmentRentalModalProps> = ({
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [studentDiscountApplied, setStudentDiscountApplied] = useState(true);
   const [isConfirmed, setIsConfirmed] = useState(false);
+  const [isLocking, setIsLocking] = useState(false);
+  const [holdError, setHoldError] = useState<string | null>(null);
 
   const baseRate = listing.price;
   const totalRent = baseRate * tenure;
@@ -29,21 +32,39 @@ export const EquipmentRentalModal: React.FC<EquipmentRentalModalProps> = ({
   const deposit = studentDiscountApplied ? Math.round(listing.deposit * 0.5) : listing.deposit;
   const totalPayable = totalRent + deliveryFee + deposit;
 
-  const handleBookingSubmit = (e: React.FormEvent) => {
+  const handleBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLocking(true);
+    setHoldError(null);
+
+    const now = new Date();
+    const startDate = now.toISOString();
+    const durationDays = isMonthly ? tenure * 30 : tenure;
+    const endDate = new Date(now.getTime() + durationDays * 86400000).toISOString();
+
+    const holdRes = await apiClient.acquireHold(listing.id, startDate, endDate);
+    setIsLocking(false);
+
+    if ('error' in holdRes && holdRes.error) {
+      setHoldError(holdRes.error);
+      return;
+    }
+
+    const holdId = 'holdId' in holdRes ? holdRes.holdId : undefined;
     setIsConfirmed(true);
     setTimeout(() => {
       onConfirmRental({
         listingId: listing.id,
+        holdId,
         title: listing.title,
         category: listing.category,
-        rentalDuration: `${tenure} ${isMonthly ? (tenure === 1 ? 'Month' : 'Months') : (tenure === 1 ? 'Day' : 'Days')}`,
-        totalPayableNow: totalPayable,
-        securityDeposit: deposit,
-        handoverLocation: deliveryAddress || listing.location,
+        durationMonths: isMonthly ? tenure : undefined,
+        totalAmount: totalPayable,
+        deposit,
+        deliveryAddress: deliveryAddress || listing.location,
         deliveryType
       });
-    }, 1200);
+    }, 1000);
   };
 
   return (
@@ -56,6 +77,25 @@ export const EquipmentRentalModal: React.FC<EquipmentRentalModalProps> = ({
     >
       {!isConfirmed ? (
         <form onSubmit={handleBookingSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          {holdError && (
+            <div style={{
+              background: 'rgba(239, 68, 68, 0.12)',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              borderRadius: 'var(--radius-md)',
+              padding: '0.85rem 1rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.75rem',
+              color: '#ef4444',
+              fontSize: '0.875rem'
+            }}>
+              <AlertCircle size={18} style={{ flexShrink: 0 }} />
+              <div>
+                <strong>Availability Conflict:</strong> {holdError}
+              </div>
+            </div>
+          )}
+
           {/* Header Item Pill */}
           <div style={{ background: 'var(--surface-secondary)', padding: '0.85rem 1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
@@ -217,8 +257,14 @@ export const EquipmentRentalModal: React.FC<EquipmentRentalModalProps> = ({
             <span>Sanitized before dispatch · Deposit refunded within 2 hours of post-semester return</span>
           </div>
 
-          <Button variant="primary" size="lg" fullWidth type="submit">
-            Confirm Equipment Reservation
+          <Button variant="primary" size="lg" fullWidth type="submit" disabled={isLocking}>
+            {isLocking ? (
+              <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center' }}>
+                <Loader2 size={18} className="animate-spin" /> Reserving Asset...
+              </span>
+            ) : (
+              'Confirm Equipment Reservation'
+            )}
           </Button>
         </form>
       ) : (

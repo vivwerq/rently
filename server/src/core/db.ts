@@ -505,6 +505,31 @@ class DatabaseStore {
     return false;
   }
 
+  public getHold(holdId: string): AvailabilityHold | null {
+    const hold = this.availabilityHolds.get(holdId);
+    if (!hold) return null;
+    if (hold.status === 'HOLD_ACTIVE' && hold.expiresAt <= Date.now()) {
+      hold.status = 'EXPIRED';
+    }
+    return hold;
+  }
+
+  public releaseHold(holdId: string): boolean {
+    const hold = this.availabilityHolds.get(holdId);
+    if (hold && hold.status === 'HOLD_ACTIVE') {
+      hold.status = 'EXPIRED';
+      this.availabilityHolds.delete(holdId);
+      const adminDb = getAdminDb();
+      if (adminDb) {
+        adminDb.collection('holds').doc(holdId).delete().catch(err => {
+          console.warn('[Firebase Admin] Failed to delete released hold from Firestore:', err);
+        });
+      }
+      return true;
+    }
+    return false;
+  }
+
   public purgeExpiredHolds() {
     const now = Date.now();
     for (const [id, hold] of this.availabilityHolds.entries()) {

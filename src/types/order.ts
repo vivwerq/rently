@@ -23,4 +23,6 @@ export interface UserOrder {
   buyerContact?: string;
   customText?: string;
   leadDays?: number;
+  holdId?: string;
 }
+

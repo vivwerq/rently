@@ -119,6 +119,41 @@ export const bookingRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
+  // Check hold status & remaining TTL
+  fastify.get<{ Params: { id: string } }>('/hold/:id', async (request, reply) => {
+    const { id } = request.params;
+    const hold = dbStore.getHold(id);
+    if (!hold) {
+      return reply.code(404).send({ error: `Hold '${id}' not found.` });
+    }
+
+    const remainingSeconds = Math.max(0, Math.floor((hold.expiresAt - Date.now()) / 1000));
+    return reply.send({
+      success: true,
+      holdId: hold.id,
+      listingId: hold.listingId,
+      status: hold.status,
+      active: hold.status === 'HOLD_ACTIVE' && remainingSeconds > 0,
+      expiresAt: new Date(hold.expiresAt).toISOString(),
+      ttlSeconds: remainingSeconds
+    });
+  });
+
+  // Release hold prematurely (e.g. user closes modal or cancels checkout)
+  fastify.post<{ Body: { holdId: string } }>('/hold/release', async (request, reply) => {
+    const { holdId } = request.body || {};
+    if (!holdId) {
+      return reply.code(400).send({ error: 'holdId is required.' });
+    }
+
+    const released = dbStore.releaseHold(holdId);
+    return reply.send({
+      success: true,
+      released,
+      message: released ? `Hold '${holdId}' successfully released.` : 'Hold was not active or already expired.'
+    });
+  });
+
   // Confirm booking & post double-entry transaction
   fastify.post<{ Body: ConfirmBookingBody }>('/confirm', async (request, reply) => {
     const body = request.body || {};

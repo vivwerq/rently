@@ -258,32 +258,53 @@ export function App() {
 
   const handleStartInspection = (bookingData: any) => {
     const orderId = `ORD-CAR-${Date.now().toString().slice(-4)}`;
+    const handoverOtp = Math.floor(100000 + Math.random() * 900000).toString();
     const bookingWithId = {
       ...bookingData,
       id: orderId,
       category: 'CAR',
-      handoverOtp: '482910'
+      handoverOtp
     };
     setActiveBooking(bookingWithId);
 
     const newOrder: UserOrder = {
       id: orderId,
       listingId: selectedCarForQuote?.id || 'car-1',
+      holdId: bookingData.holdId,
       title: bookingData.title || selectedCarForQuote?.title || 'Self-Drive Vehicle',
       category: 'CAR',
-      totalPayableNow: bookingData.totalAmount || 3200,
-      securityDeposit: bookingData.deposit || 3000,
+      totalPayableNow: bookingData.totalPayableNow || bookingData.totalAmount || 3200,
+      securityDeposit: bookingData.securityDeposit || bookingData.deposit || 3000,
       createdAt: 'Just now',
       status: 'CONFIRMED',
-      handoverOtp: '482910',
+      handoverOtp,
       handoverLocation: selectedCarForQuote?.location || selectedLocality.name,
       operatorName: selectedCarForQuote?.operator?.name || 'Rently Fleet Partner',
       regNumber: selectedCarForQuote?.carSpecs?.regNumber || 'PB65-AX-7821',
       primaryImage: selectedCarForQuote?.primaryImage || 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=800&q=80',
-      rentalDuration: '2 Days'
+      rentalDuration: `${bookingData.rentalDays || 2} Days`
     };
     saveOrder(newOrder);
     setOrders(getStoredOrders());
+
+    // Confirm hold lock in backend
+    if (bookingData.holdId) {
+      fetch('/api/v1/bookings/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          listingId: newOrder.listingId,
+          renterName: profile?.displayName || 'Campus Renter',
+          renterPhone: profile?.phoneNumber || '+91 98765 43210',
+          holdId: bookingData.holdId,
+          days: bookingData.rentalDays || 2,
+          handoverLocation: newOrder.handoverLocation
+        })
+      }).catch(err => {
+        console.warn('Backend confirmation warning:', err);
+      });
+    }
+
     setSelectedCarForQuote(null);
     setIsInspectionModalOpen(true);
   };
@@ -673,16 +694,18 @@ export function App() {
           onClose={() => setSelectedEquipmentForRent(null)}
           onConfirmRental={(bookingData) => {
             const orderId = `ORD-RENT-${Date.now().toString().slice(-4)}`;
+            const handoverOtp = Math.floor(100000 + Math.random() * 900000).toString();
             const orderPayload: UserOrder = {
               id: orderId,
               listingId: bookingData.listingId,
+              holdId: bookingData.holdId,
               title: bookingData.title,
               category: (bookingData.category as any) || 'ROOM_ESSENTIAL',
               totalPayableNow: bookingData.totalAmount,
               securityDeposit: bookingData.deposit,
               createdAt: 'Just now',
               status: 'CONFIRMED',
-              handoverOtp: '619284',
+              handoverOtp,
               handoverLocation: bookingData.deliveryAddress || selectedLocality.name,
               operatorName: 'Tri-City Student Rentals',
               primaryImage: bookingData.primaryImage || selectedEquipmentForRent.primaryImage,
@@ -690,7 +713,22 @@ export function App() {
             };
             saveOrder(orderPayload);
             setOrders(getStoredOrders());
-            setActiveBooking({ ...bookingData, id: orderId, handoverOtp: '619284' });
+
+            if (bookingData.holdId) {
+              fetch('/api/v1/bookings/confirm', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  listingId: orderPayload.listingId,
+                  renterName: profile?.displayName || 'Campus User',
+                  renterPhone: profile?.phoneNumber || '+91 98765 43210',
+                  holdId: bookingData.holdId,
+                  handoverLocation: orderPayload.handoverLocation
+                })
+              }).catch(() => {});
+            }
+
+            setActiveBooking({ ...bookingData, id: orderId, handoverOtp });
             setSelectedEquipmentForRent(null);
           }}
         />
@@ -702,6 +740,7 @@ export function App() {
           onClose={() => setSelectedResaleForOffer(null)}
           onConfirmOffer={(orderData) => {
             const orderId = `ORD-RESALE-${Date.now().toString().slice(-4)}`;
+            const handoverOtp = Math.floor(100000 + Math.random() * 900000).toString();
             const orderPayload: UserOrder = {
               id: orderId,
               listingId: orderData.listingId,
@@ -711,7 +750,7 @@ export function App() {
               securityDeposit: 0,
               createdAt: 'Just now',
               status: 'CONFIRMED',
-              handoverOtp: '391028',
+              handoverOtp,
               handoverLocation: orderData.meetupSpot || selectedLocality.name,
               operatorName: 'Student Seller',
               buyerContact: orderData.phone,
@@ -719,7 +758,7 @@ export function App() {
             };
             saveOrder(orderPayload);
             setOrders(getStoredOrders());
-            setActiveBooking({ ...orderData, id: orderId, handoverOtp: '391028', category: 'RESALE' });
+            setActiveBooking({ ...orderData, id: orderId, handoverOtp, category: 'RESALE' });
             setSelectedResaleForOffer(null);
           }}
         />
@@ -731,6 +770,7 @@ export function App() {
           onClose={() => setSelectedMakerForOrder(null)}
           onConfirmOrder={(orderData) => {
             const orderId = `ORD-MAKER-${Date.now().toString().slice(-4)}`;
+            const handoverOtp = Math.floor(100000 + Math.random() * 900000).toString();
             const orderPayload: UserOrder = {
               id: orderId,
               listingId: orderData.listingId,
@@ -740,7 +780,7 @@ export function App() {
               securityDeposit: 0,
               createdAt: 'Just now',
               status: 'CONFIRMED',
-              handoverOtp: '502914',
+              handoverOtp,
               handoverLocation: selectedLocality.name,
               operatorName: 'Tri-City Artisan Studio',
               customText: orderData.customText,
@@ -749,7 +789,7 @@ export function App() {
             };
             saveOrder(orderPayload);
             setOrders(getStoredOrders());
-            setActiveBooking({ ...orderData, id: orderId, handoverOtp: '502914', category: 'MAKER' });
+            setActiveBooking({ ...orderData, id: orderId, handoverOtp, category: 'MAKER' });
             setSelectedMakerForOrder(null);
           }}
         />
