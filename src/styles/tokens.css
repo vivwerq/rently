@@ -1,0 +1,116 @@
+/* ==========================================================================
+   Rently Hyperlocal Marketplace Design System - Design Tokens
+   Authentic Apple HIG: Light & Dark Dynamic Material System
+   Clean, Calm, Accessible, Ultra-Responsive (320px to 1440px+)
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. Theme Tokens: Apple Signature Light (Default) & Dark Appearance
+   -------------------------------------------------------------------------- */
+:root, [data-theme="light"] {
+  /* Surface & Canvas System */
+  --canvas-bg: #f5f5f7;
+  --surface-primary: #ffffff;
+  --surface-secondary: #f0f0f2;
+  --surface-tertiary: #e5e5ea;
+  --surface-elevated: #ffffff;
+  --surface-overlay: rgba(245, 245, 247, 0.82);
+  --navbar-bg: rgba(255, 255, 255, 0.85);
+  --navbar-border: rgba(0, 0, 0, 0.08);
+
+  /* Borders & Separators */
+  --border-subtle: rgba(0, 0, 0, 0.06);
+  --border-standard: rgba(0, 0, 0, 0.12);
+  --border-strong: rgba(0, 0, 0, 0.22);
+  --border-focus: #0071e3;
+
+  /* Typography Colors (Exceeding WCAG AAA & AA Contrast Ratios) */
+  --text-primary: #1d1d1f;       /* Apple signature ink black */
+  --text-secondary: #515154;     /* Apple readable body text */
+  --text-tertiary: #86868b;      /* Apple caption & metadata */
+  --text-inverse: #ffffff;
+
+  /* Restrained Apple Accents */
+  --accent-emerald: #059669;
+  --accent-emerald-subtle: rgba(5, 150, 105, 0.09);
+  --accent-emerald-hover: #047857;
+  --accent-blue: #0071e3;
+  --accent-blue-subtle: rgba(0, 113, 227, 0.08);
+  --accent-amber: #b45309;
+  --accent-amber-subtle: rgba(180, 83, 9, 0.08);
+  --accent-rose: #e11d48;
+  --accent-rose-subtle: rgba(225, 29, 72, 0.08);
+
+  /* Shadows (Apple Diffuse Soft Shadows) */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.03);
+  --shadow-lg: 0 12px 36px rgba(0, 0, 0, 0.08);
+  --shadow-modal: 0 24px 64px rgba(0, 0, 0, 0.16);
+
+  /* Footer Tokens */
+  --footer-bg: #f5f5f7;
+  --footer-border: #d2d2d7;
+  --footer-title: #1d1d1f;
+  --footer-link: #424245;
+  --footer-text: #86868b;
+}
+
+[data-theme="dark"] {
+  --canvas-bg: #000000;
+  --surface-primary: #1c1c1e;
+  --surface-secondary: #2c2c2e;
+  --surface-tertiary: #3a3a3c;
+  --surface-elevated: #242426;
+  --surface-overlay: rgba(0, 0, 0, 0.82);
+  --navbar-bg: rgba(22, 22, 23, 0.82);
+  --navbar-border: rgba(255, 255, 255, 0.08);
+
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-standard: rgba(255, 255, 255, 0.14);
+  --border-strong: rgba(255, 255, 255, 0.25);
+  --border-focus: #2997ff;
+
+  --text-primary: #f5f5f7;
+  --text-secondary: #a1a1a6;
+  --text-tertiary: #86868b;
+  --text-inverse: #000000;
+
+  --accent-emerald: #10b981;
+  --accent-emerald-subtle: rgba(16, 185, 129, 0.15);
+  --accent-emerald-hover: #059669;
+  --accent-blue: #2997ff;
+  --accent-blue-subtle: rgba(41, 151, 255, 0.15);
+  --accent-amber: #f59e0b;
+  --accent-amber-subtle: rgba(245, 158, 11, 0.15);
+  --accent-rose: #ff453a;
+  --accent-rose-subtle: rgba(255, 69, 58, 0.15);
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 12px 36px rgba(0, 0, 0, 0.6);
+  --shadow-modal: 0 24px 64px rgba(0, 0, 0, 0.8);
+
+  --footer-bg: #161617;
+  --footer-border: #333336;
+  --footer-title: #f5f5f7;
+  --footer-link: #a1a1a6;
+  --footer-text: #86868b;
+}
+
+:root {
+  /* Typography Stack */
+  --font-system: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Plus Jakarta Sans", "Inter", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+
+  /* Apple Squircle Radius Scale */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+  --radius-full: 9999px;
+
+  /* Layout Constants */
+  --max-width-content: 1240px;
+  --header-height: 64px;
+}

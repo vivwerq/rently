@@ -1,0 +1,241 @@
+import React, { useState } from 'react';
+import type { ListingItem } from '../../data/mockData';
+import { ShieldCheck, MapPin, CheckCircle2, Armchair, Sparkles } from 'lucide-react';
+import { Modal } from '../ui/Modal';
+import { Button } from '../ui/Button';
+import { Input } from '../ui/Input';
+
+interface EquipmentRentalModalProps {
+  listing: ListingItem;
+  onClose: () => void;
+  onConfirmRental: (bookingData: any) => void;
+}
+
+export const EquipmentRentalModal: React.FC<EquipmentRentalModalProps> = ({
+  listing,
+  onClose,
+  onConfirmRental
+}) => {
+  const isMonthly = listing.priceUnit.includes('month');
+  const [tenure, setTenure] = useState(isMonthly ? 3 : 2);
+  const [deliveryType, setDeliveryType] = useState<'CAMPUS_GATE' | 'PG_DOORSTEP'>('CAMPUS_GATE');
+  const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [studentDiscountApplied, setStudentDiscountApplied] = useState(true);
+  const [isConfirmed, setIsConfirmed] = useState(false);
+
+  const baseRate = listing.price;
+  const totalRent = baseRate * tenure;
+  const deliveryFee = deliveryType === 'PG_DOORSTEP' ? 250 : 0;
+  const deposit = studentDiscountApplied ? Math.round(listing.deposit * 0.5) : listing.deposit;
+  const totalPayable = totalRent + deliveryFee + deposit;
+
+  const handleBookingSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsConfirmed(true);
+    setTimeout(() => {
+      onConfirmRental({
+        listingId: listing.id,
+        title: listing.title,
+        category: listing.category,
+        rentalDuration: `${tenure} ${isMonthly ? (tenure === 1 ? 'Month' : 'Months') : (tenure === 1 ? 'Day' : 'Days')}`,
+        totalPayableNow: totalPayable,
+        securityDeposit: deposit,
+        handoverLocation: deliveryAddress || listing.location,
+        deliveryType
+      });
+    }, 1200);
+  };
+
+  return (
+    <Modal
+      isOpen={true}
+      onClose={onClose}
+      title={isConfirmed ? 'Rental Reserved Successfully!' : `Rent ${listing.title}`}
+      description={isConfirmed ? undefined : 'Flexible tenure, zero-hassle delivery, and protected deposit.'}
+      maxWidth="md"
+    >
+      {!isConfirmed ? (
+        <form onSubmit={handleBookingSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          {/* Header Item Pill */}
+          <div style={{ background: 'var(--surface-secondary)', padding: '0.85rem 1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+              <Armchair size={22} color="var(--accent-emerald)" />
+              <div>
+                <h4 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+                  {listing.title}
+                </h4>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <MapPin size={12} color="var(--accent-emerald)" />
+                  <span>{listing.location} · {listing.distanceKm} km away</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Tenure Picker */}
+          <div>
+            <label style={{ fontSize: '0.825rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '0.45rem' }}>
+              Select Rental Tenure ({isMonthly ? 'Months' : 'Days'})
+            </label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem' }}>
+              {(isMonthly ? [1, 2, 3, 6] : [1, 2, 3, 5]).map((qty) => {
+                const isSelected = tenure === qty;
+                return (
+                  <button
+                    key={qty}
+                    type="button"
+                    onClick={() => setTenure(qty)}
+                    style={{
+                      background: isSelected ? 'var(--accent-emerald-subtle)' : 'var(--surface-secondary)',
+                      border: `1px solid ${isSelected ? 'var(--accent-emerald)' : 'var(--border-subtle)'}`,
+                      color: isSelected ? 'var(--accent-emerald)' : 'var(--text-primary)',
+                      padding: '0.65rem',
+                      borderRadius: 'var(--radius-md)',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      fontSize: '0.85rem',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    {qty} {isMonthly ? (qty === 1 ? 'Month' : 'Months') : (qty === 1 ? 'Day' : 'Days')}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Delivery Gate / Room Address */}
+          <div>
+            <label style={{ fontSize: '0.825rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '0.45rem' }}>
+              Delivery Destination
+            </label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem', marginBottom: '0.65rem' }}>
+              <button
+                type="button"
+                style={{
+                  background: deliveryType === 'CAMPUS_GATE' ? 'var(--accent-emerald-subtle)' : 'var(--surface-secondary)',
+                  border: `1px solid ${deliveryType === 'CAMPUS_GATE' ? 'var(--accent-emerald)' : 'var(--border-subtle)'}`,
+                  color: 'var(--text-primary)',
+                  padding: '0.75rem',
+                  borderRadius: 'var(--radius-md)',
+                  textAlign: 'left',
+                  cursor: 'pointer'
+                }}
+                onClick={() => setDeliveryType('CAMPUS_GATE')}
+              >
+                <div style={{ fontWeight: 700, fontSize: '0.85rem' }}>Campus Gate (Free)</div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)', marginTop: '2px' }}>
+                  CU Gate 2 / PU Stu-C / CGC Gate 1
+                </div>
+              </button>
+
+              <button
+                type="button"
+                style={{
+                  background: deliveryType === 'PG_DOORSTEP' ? 'var(--accent-emerald-subtle)' : 'var(--surface-secondary)',
+                  border: `1px solid ${deliveryType === 'PG_DOORSTEP' ? 'var(--accent-emerald)' : 'var(--border-subtle)'}`,
+                  color: 'var(--text-primary)',
+                  padding: '0.75rem',
+                  borderRadius: 'var(--radius-md)',
+                  textAlign: 'left',
+                  cursor: 'pointer'
+                }}
+                onClick={() => setDeliveryType('PG_DOORSTEP')}
+              >
+                <div style={{ fontWeight: 700, fontSize: '0.85rem', display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Doorstep / PG</span>
+                  <span style={{ color: 'var(--accent-emerald)' }}>+₹250</span>
+                </div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)', marginTop: '2px' }}>
+                  Direct to room with setup
+                </div>
+              </button>
+            </div>
+
+            <Input
+              placeholder={deliveryType === 'CAMPUS_GATE' ? 'Campus gate meetup details (e.g. Hostels Block D)' : 'Full PG / Flat address in Kharar or Mohali'}
+              value={deliveryAddress}
+              onChange={(e) => setDeliveryAddress(e.target.value)}
+            />
+          </div>
+
+          {/* Student Deposit Waiver Toggle */}
+          <div
+            style={{
+              background: 'var(--accent-blue-subtle)',
+              border: '1px solid rgba(0, 113, 227, 0.2)',
+              padding: '0.75rem 1rem',
+              borderRadius: 'var(--radius-md)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              cursor: 'pointer'
+            }}
+            onClick={() => setStudentDiscountApplied(!studentDiscountApplied)}
+          >
+            <div>
+              <div style={{ fontSize: '0.825rem', fontWeight: 700, color: 'var(--accent-blue)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Sparkles size={14} /> Student Deposit Waiver Applied
+              </div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                50% reduced refundable security deposit with college roll number
+              </div>
+            </div>
+            <input 
+              type="checkbox" 
+              checked={studentDiscountApplied} 
+              onChange={() => {}} 
+              style={{ accentColor: 'var(--accent-blue)', width: '18px', height: '18px', cursor: 'pointer' }}
+            />
+          </div>
+
+          {/* Itemized Cost Summary */}
+          <div style={{ background: 'var(--surface-secondary)', borderRadius: 'var(--radius-md)', padding: '0.85rem 1rem', border: '1px solid var(--border-subtle)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.35rem' }}>
+              <span>Rent for {tenure} {isMonthly ? (tenure === 1 ? 'month' : 'months') : (tenure === 1 ? 'day' : 'days')}</span>
+              <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>₹{totalRent.toLocaleString()}</span>
+            </div>
+            {deliveryType === 'PG_DOORSTEP' && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.35rem' }}>
+                <span>Move-in Doorstep Delivery</span>
+                <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>₹250</span>
+              </div>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
+              <span>Refundable Deposit (Escrow)</span>
+              <span style={{ fontWeight: 700, color: 'var(--accent-amber)' }}>₹{deposit.toLocaleString()}</span>
+            </div>
+            <div style={{ height: '1px', background: 'var(--border-standard)', margin: '0.4rem 0' }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+              <span>Total Payable Now</span>
+              <span style={{ color: 'var(--accent-emerald)' }}>₹{totalPayable.toLocaleString()}</span>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.78rem', color: 'var(--text-tertiary)' }}>
+            <ShieldCheck size={14} color="var(--accent-emerald)" />
+            <span>Sanitized before dispatch · Deposit refunded within 2 hours of post-semester return</span>
+          </div>
+
+          <Button variant="primary" size="lg" fullWidth type="submit">
+            Confirm Equipment Reservation
+          </Button>
+        </form>
+      ) : (
+        <div style={{ textAlign: 'center', padding: '2rem 1rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+          <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'var(--accent-emerald-subtle)', display: 'grid', placeItems: 'center', color: 'var(--accent-emerald)' }}>
+            <CheckCircle2 size={36} />
+          </div>
+          <div>
+            <h4 style={{ fontSize: '1.3rem', color: 'var(--text-primary)', fontWeight: 800, margin: 0 }}>
+              Equipment Reserved!
+            </h4>
+            <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginTop: '0.35rem' }}>
+              Your reservation for <strong>{listing.title}</strong> is confirmed. Scheduled for handover at {deliveryAddress || listing.location}.
+            </p>
+          </div>
+        </div>
+      )}
+    </Modal>
+  );
+};

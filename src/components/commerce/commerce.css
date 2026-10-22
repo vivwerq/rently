@@ -1,0 +1,407 @@
+/* ==========================================================================
+   IMAGE GALLERY & COMMERCE PRICE BREAKDOWN (Phase 3)
+   ========================================================================== */
+
+/* 1. Image Gallery Component */
+.commerce-gallery-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.commerce-gallery-hero-wrapper {
+  position: relative;
+  width: 100%;
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  background: var(--surface-secondary);
+  border: 1px solid var(--border-subtle);
+  aspect-ratio: 16 / 10;
+}
+
+.commerce-gallery-hero-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.commerce-gallery-thumbnails {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+}
+
+.commerce-gallery-thumb-btn {
+  width: 80px;
+  height: 56px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 2px solid transparent;
+  background: var(--surface-secondary);
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: all 0.18s ease;
+}
+.commerce-gallery-thumb-btn:hover {
+  opacity: 0.9;
+}
+.commerce-gallery-thumb-btn.active {
+  border-color: var(--accent-emerald);
+  box-shadow: 0 0 0 2px var(--accent-emerald-subtle);
+}
+
+.commerce-gallery-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* 2. Price Breakdown Card */
+.quote-breakdown-card {
+  background: var(--surface-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.quote-breakdown-heading {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 0.35rem;
+}
+
+.quote-line-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.quote-line-val {
+  font-weight: 600;
+  color: var(--text-primary);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.quote-sub-label {
+  display: block;
+  font-size: 0.725rem;
+  color: var(--text-tertiary);
+  margin-top: 1px;
+}
+
+.highlight-green {
+  color: var(--accent-emerald);
+}
+
+.highlight-amber {
+  color: var(--accent-amber);
+}
+
+.strike-through {
+  text-decoration: line-through;
+  color: var(--text-tertiary);
+}
+
+.quote-divider {
+  height: 1px;
+  background: var(--border-standard);
+  margin: 0.35rem 0;
+}
+
+.quote-line-item.total-line {
+  align-items: center;
+  padding-top: 0.25rem;
+}
+
+.total-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.total-sub {
+  font-size: 0.725rem;
+  color: var(--text-secondary);
+}
+
+.total-price {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--accent-emerald);
+}
+
+.quote-deposit-callout {
+  background: var(--surface-secondary);
+  border-radius: var(--radius-md);
+  padding: 0.75rem 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-top: 0.35rem;
+}
+
+.callout-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.callout-desc {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  line-height: 1.4;
+  margin: 0;
+}
+
+/* ==========================================================================
+   PHASE 4: SEGMENTED CONTROLS, COMPARISON MATRIX, ORDERS & ACCOUNT
+   ========================================================================== */
+
+/* Apple HIG Segmented Tab Control */
+.segmented-tab-control {
+  display: inline-flex;
+  align-items: center;
+  background: var(--surface-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  padding: 3px;
+  gap: 2px;
+}
+
+.segmented-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: var(--radius-full);
+  padding: 0.4rem 0.9rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 160ms cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap;
+}
+
+.segmented-tab-btn:hover:not(.active) {
+  color: var(--text-primary);
+}
+
+.segmented-tab-btn.active {
+  background: var(--surface-primary);
+  color: var(--text-primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+/* Comparison Table */
+.comparison-table-wrapper {
+  background: var(--surface-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  padding: 1.5rem;
+  margin-top: 1.25rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.comparison-table-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.comparison-table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 0 -0.5rem;
+  padding: 0 0.5rem 0.5rem;
+}
+
+.comparison-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  min-width: 600px;
+}
+
+.comparison-label-col,
+.comparison-label-cell {
+  width: 220px;
+  text-align: left;
+  padding: 0.85rem 1rem;
+  font-size: 0.825rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-primary);
+}
+
+.comparison-item-col {
+  padding: 0.75rem 0.85rem;
+  text-align: center;
+  min-width: 200px;
+  vertical-align: top;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.comparison-item-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.85rem;
+  background: var(--surface-secondary);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+  transition: border-color 150ms ease;
+}
+
+.comparison-item-card:hover {
+  border-color: var(--border-focus);
+}
+
+.comparison-remove-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-subtle);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  color: var(--text-tertiary);
+  transition: all 120ms ease;
+  z-index: 2;
+}
+
+.comparison-remove-btn:hover {
+  color: var(--accent-rose);
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.comparison-item-thumb {
+  width: 100%;
+  height: 110px;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+}
+
+.comparison-item-title {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0.25rem 0 0;
+  text-align: center;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.comparison-item-price {
+  font-size: 0.95rem;
+  color: var(--accent-emerald);
+  margin-bottom: 0.35rem;
+}
+
+.comparison-val-cell {
+  padding: 0.85rem 1rem;
+  text-align: center;
+  font-size: 0.825rem;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+/* Orders Portal Styles */
+.order-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 700;
+  border: 1px solid transparent;
+}
+
+.order-status-pill.confirmed {
+  background: var(--accent-emerald-subtle);
+  color: var(--accent-emerald);
+  border-color: rgba(16, 185, 129, 0.25);
+}
+
+.order-status-pill.active {
+  background: rgba(59, 130, 246, 0.1);
+  color: var(--accent-blue);
+  border-color: rgba(59, 130, 246, 0.25);
+}
+
+.order-status-pill.completed {
+  background: var(--surface-secondary);
+  color: var(--text-secondary);
+  border-color: var(--border-subtle);
+}
+
+.order-status-pill.cancelled {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--accent-rose);
+  border-color: rgba(239, 68, 68, 0.25);
+}
+
+.order-tab-count-badge {
+  background: var(--accent-emerald);
+  color: #ffffff;
+  border-radius: var(--radius-full);
+  font-size: 0.7rem;
+  padding: 1px 7px;
+  font-weight: 700;
+}
+
+.order-card-panel {
+  background: var(--surface-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  padding: 1.35rem;
+  transition: all 180ms ease;
+  box-shadow: var(--shadow-sm);
+}
+
+.order-card-panel:hover {
+  border-color: var(--border-focus);
+  box-shadow: var(--shadow-md);
+}
+
+.order-id-label {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  background: var(--surface-secondary);
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+}
+

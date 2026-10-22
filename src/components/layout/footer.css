@@ -1,0 +1,115 @@
+/* --------------------------------------------------------------------------
+   7. Apple Directory Footer (Clean, Sleek, Collapsible Accordion on Mobile)
+   -------------------------------------------------------------------------- */
+.site-footer {
+  margin-top: auto;
+  background: var(--footer-bg);
+  border-top: 1px solid var(--footer-border);
+  padding: 2.5rem 1.25rem 1.5rem;
+  color: var(--footer-text);
+  font-size: 0.75rem;
+  line-height: 1.6;
+}
+
+.site-footer-inner {
+  max-width: var(--max-width-content);
+  margin: 0 auto;
+}
+
+/* Legal Disclosures Header */
+.footer-disclosures {
+  padding-bottom: 1.25rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 0.72rem;
+  color: var(--footer-text);
+}
+
+/* 4-Column Directory Grid */
+.footer-directory-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 2rem;
+  padding-bottom: 2rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.footer-directory-col h4 {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--footer-title);
+  letter-spacing: -0.01em;
+  margin-bottom: 0.65rem;
+}
+
+.footer-directory-col ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.footer-directory-col a {
+  color: var(--footer-link);
+  text-decoration: none;
+  font-size: 0.75rem;
+  transition: color 0.15s ease;
+}
+
+.footer-directory-col a:hover {
+  color: var(--footer-link-hover);
+  text-decoration: underline;
+}
+
+/* Mobile Accordion Drawer Item */
+.footer-accordion-item {
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.footer-accordion-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 0;
+  background: transparent;
+  border: none;
+  color: var(--footer-title);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+}
+
+.footer-accordion-content {
+  padding-bottom: 0.85rem;
+}
+
+/* Footer Bottom Row */
+.footer-bottom-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-top: 1.25rem;
+  font-size: 0.72rem;
+  color: var(--footer-text);
+}
+
+.footer-legal-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+}
+
+.footer-legal-links a {
+  color: var(--footer-link);
+  text-decoration: none;
+}
+
+.footer-legal-links a:hover {
+  color: var(--footer-link-hover);
+  text-decoration: underline;
+}
+

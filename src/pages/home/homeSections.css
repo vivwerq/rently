@@ -1,0 +1,626 @@
+/* ==========================================================================
+   HOMEPAGE SECTIONS (SECTIONS 1 TO 9)
+   Apple Human Interface Guidelines & Cupertino Modern Aesthetic
+   ========================================================================== */
+
+/* 1. BROWSE BY CATEGORY SHORTCUTS */
+.browse-category-shortcuts-section {
+  max-width: var(--max-width-content);
+  margin: 0.5rem auto 2.5rem;
+  padding: 0 var(--spacing-container);
+}
+
+.category-shortcuts-scroll {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  overflow-x: auto;
+  padding: 0.35rem 0.25rem 0.85rem;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.category-shortcuts-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.category-shortcut-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.65rem 1.15rem;
+  border-radius: var(--radius-full);
+  background: var(--surface-primary);
+  border: 1px solid var(--border-standard);
+  color: var(--text-primary);
+  font-size: 0.92rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: var(--shadow-sm);
+}
+
+.category-shortcut-chip:hover {
+  background: var(--surface-secondary);
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
+}
+
+.category-shortcut-chip:focus-visible {
+  outline: 2px solid var(--accent-emerald);
+  outline-offset: 2px;
+}
+
+.category-shortcut-chip.priority-cars {
+  background: var(--surface-primary);
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
+  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.12);
+}
+
+.category-shortcut-chip.priority-cars:hover {
+  background: var(--accent-blue-subtle);
+  border-color: var(--accent-blue);
+}
+
+.shortcut-chip-tag {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.15rem 0.45rem;
+  border-radius: var(--radius-full);
+  background: var(--accent-blue-subtle);
+  color: var(--accent-blue);
+}
+
+/* 2. CARS IN SELECTED LOCATION */
+.price-calculated-total {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--accent-emerald);
+  margin-left: 0.3rem;
+}
+
+/* 3. FIND YOUR KIND OF DRIVE */
+.kind-of-drive-section {
+  max-width: var(--max-width-content);
+  margin: 3.5rem auto;
+  padding: 0 var(--spacing-container);
+}
+
+.section-headline-group {
+  margin-bottom: 1.5rem;
+}
+
+.section-micro-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent-blue);
+  margin-bottom: 0.4rem;
+}
+
+.section-main-heading {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.025em;
+  margin: 0 0 0.35rem;
+}
+
+.section-sub-copy {
+  font-size: 0.94rem;
+  color: var(--text-secondary);
+  margin: 0;
+  max-width: 640px;
+  line-height: 1.5;
+}
+
+.drive-tiles-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 1rem;
+}
+
+.drive-tile-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 1.35rem 1.25rem;
+  border-radius: var(--radius-lg);
+  background: var(--surface-primary);
+  border: 1px solid var(--border-subtle);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: var(--shadow-sm);
+  text-align: left;
+}
+
+.drive-tile-card:hover {
+  border-color: var(--border-strong);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.drive-tile-card:focus-visible {
+  outline: 2px solid var(--accent-emerald);
+  outline-offset: 2px;
+}
+
+.drive-tile-icon-box {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1rem;
+  background: var(--surface-secondary);
+  color: var(--text-primary);
+  font-size: 1.35rem;
+}
+
+.drive-tile-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 0.4rem;
+  letter-spacing: -0.015em;
+}
+
+.drive-tile-desc {
+  font-size: 0.84rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  margin: 0 0 1rem;
+}
+
+.drive-tile-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--accent-blue);
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 0.75rem;
+}
+
+/* 5. HOW RENTLY WORKS */
+.how-it-works-home-section {
+  max-width: var(--max-width-content);
+  margin: 4rem auto;
+  padding: 0 var(--spacing-container);
+}
+
+.how-steps-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.75rem;
+  margin-top: 2rem;
+}
+
+.how-step-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.how-step-number-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  background: var(--surface-secondary);
+  border: 1px solid var(--border-standard);
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.how-step-heading {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: -0.015em;
+}
+
+.how-step-text {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  line-height: 1.55;
+  margin: 0;
+}
+
+.how-steps-footer-note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 2.25rem;
+  padding: 1rem 1.25rem;
+  border-radius: var(--radius-md);
+  background: var(--surface-primary);
+  border: 1px solid var(--border-subtle);
+  font-size: 0.86rem;
+  color: var(--text-secondary);
+}
+
+.how-details-link {
+  font-weight: 600;
+  color: var(--accent-blue);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.how-details-link:hover {
+  text-decoration: underline;
+}
+
+/* 6. KNOW BEFORE YOU BOOK */
+.know-before-book-section {
+  max-width: var(--max-width-content);
+  margin: 4rem auto;
+  padding: 0 var(--spacing-container);
+}
+
+.policies-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.25rem;
+  margin-top: 1.75rem;
+}
+
+.policy-card {
+  padding: 1.5rem;
+  border-radius: var(--radius-lg);
+  background: var(--surface-primary);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.policy-icon-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--accent-emerald);
+}
+
+.policy-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.policy-body {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  line-height: 1.55;
+  margin: 0;
+}
+
+.policy-footnote {
+  font-size: 0.78rem;
+  color: var(--text-tertiary);
+  margin-top: 0.35rem;
+}
+
+/* 7. MADE NEARBY & PRE-LOVED FINDS */
+.secondary-commerce-section {
+  max-width: var(--max-width-content);
+  margin: 4rem auto;
+  padding: 0 var(--spacing-container);
+}
+
+.secondary-commerce-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  margin-top: 1.5rem;
+}
+
+.secondary-commerce-block {
+  padding: 1.5rem;
+  border-radius: var(--radius-xl);
+  background: var(--surface-secondary);
+  border: 1px solid var(--border-subtle);
+}
+
+.secondary-block-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+}
+
+.secondary-block-title {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0 0 0.25rem;
+  letter-spacing: -0.015em;
+}
+
+.secondary-block-sub {
+  font-size: 0.84rem;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.45;
+}
+
+.secondary-view-all-link {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--accent-blue);
+  white-space: nowrap;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.secondary-view-all-link:hover {
+  text-decoration: underline;
+}
+
+.secondary-cards-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.secondary-compact-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.85rem;
+  border-radius: var(--radius-md);
+  background: var(--surface-primary);
+  border: 1px solid var(--border-subtle);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.secondary-compact-item:hover {
+  border-color: var(--border-strong);
+  transform: translateX(2px);
+}
+
+.secondary-compact-thumb {
+  width: 68px;
+  height: 68px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.secondary-compact-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.secondary-compact-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 0.25rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.secondary-compact-meta {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.35rem;
+}
+
+.secondary-compact-price-line {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.84rem;
+}
+
+.secondary-badge-pill {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.1rem 0.45rem;
+  border-radius: var(--radius-full);
+}
+.secondary-badge-pill.maker {
+  background: #fef3c7;
+  color: #b45309;
+}
+.secondary-badge-pill.resale {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+/* 8. HAVE SOMETHING TO RENT OUT? (Supplier Invitation) */
+.supplier-invite-section {
+  max-width: var(--max-width-content);
+  margin: 4.5rem auto;
+  padding: 0 var(--spacing-container);
+}
+
+.supplier-invite-card {
+  padding: 2.75rem 2.25rem;
+  border-radius: var(--radius-xl);
+  background: var(--surface-primary);
+  border: 1px solid var(--border-standard);
+  box-shadow: var(--shadow-md);
+  display: grid;
+  grid-template-columns: 1.4fr 0.9fr;
+  align-items: center;
+  gap: 2rem;
+}
+
+.supplier-invite-heading {
+  font-size: 1.85rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.025em;
+  margin: 0 0 0.65rem;
+}
+
+.supplier-invite-copy {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin: 0 0 1.25rem;
+}
+
+.supplier-compliance-notes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  background: var(--surface-secondary);
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius-md);
+  border-left: 3px solid var(--accent-amber);
+  margin-bottom: 1.5rem;
+}
+
+.supplier-cta-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.85rem 1.65rem;
+  border-radius: var(--radius-full);
+  background: var(--text-primary);
+  color: var(--surface-primary);
+  font-size: 0.95rem;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.supplier-cta-btn:hover {
+  opacity: 0.92;
+  transform: translateY(-1px);
+}
+
+.supplier-invite-badge-box {
+  background: var(--surface-secondary);
+  padding: 1.75rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.supplier-perk-line {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* 9. FREQUENTLY ASKED QUESTIONS (Accordion) */
+.faq-home-section {
+  max-width: var(--max-width-content);
+  margin: 4.5rem auto 5rem;
+  padding: 0 var(--spacing-container);
+}
+
+.faq-accordion-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1.75rem;
+  max-width: 820px;
+}
+
+.faq-accordion-item {
+  border-radius: var(--radius-md);
+  background: var(--surface-primary);
+  border: 1px solid var(--border-subtle);
+  overflow: hidden;
+  transition: border-color 0.15s ease;
+}
+
+.faq-accordion-item.open {
+  border-color: var(--border-strong);
+}
+
+.faq-question-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.15rem 1.25rem;
+  background: transparent;
+  border: none;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.faq-question-btn:hover {
+  background: var(--surface-secondary);
+}
+
+.faq-question-btn:focus-visible {
+  outline: 2px solid var(--accent-emerald);
+  outline-offset: -2px;
+}
+
+.faq-chevron {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  color: var(--text-secondary);
+}
+
+.faq-accordion-item.open .faq-chevron {
+  transform: rotate(180deg);
+}
+
+.faq-answer-panel {
+  padding: 0 1.25rem 1.25rem;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+/* Responsive Overrides */
+@media (max-width: 768px) {
+  .how-steps-row {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+  .secondary-commerce-split {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+  .supplier-invite-card {
+    grid-template-columns: 1fr;
+    padding: 1.75rem 1.25rem;
+  }
+}
