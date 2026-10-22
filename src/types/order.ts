@@ -24,5 +24,8 @@ export interface UserOrder {
   customText?: string;
   leadDays?: number;
   holdId?: string;
+  paymentId?: string;
+  paymentStatus?: 'PAID' | 'ESCROW_HELD' | 'REFUNDED';
+  razorpayOrderId?: string;
 }
 

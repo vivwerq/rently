@@ -25,6 +25,7 @@ export const EquipmentRentalModal: React.FC<EquipmentRentalModalProps> = ({
   const [isConfirmed, setIsConfirmed] = useState(false);
   const [isLocking, setIsLocking] = useState(false);
   const [holdError, setHoldError] = useState<string | null>(null);
+  const [confirmedPaymentId, setConfirmedPaymentId] = useState<string | null>(null);
 
   const baseRate = listing.price;
   const totalRent = baseRate * tenure;
@@ -42,29 +43,91 @@ export const EquipmentRentalModal: React.FC<EquipmentRentalModalProps> = ({
     const durationDays = isMonthly ? tenure * 30 : tenure;
     const endDate = new Date(now.getTime() + durationDays * 86400000).toISOString();
 
+    // 1. Acquire Atomic 15-min Lock
     const holdRes = await apiClient.acquireHold(listing.id, startDate, endDate);
-    setIsLocking(false);
-
     if ('error' in holdRes && holdRes.error) {
+      setIsLocking(false);
       setHoldError(holdRes.error);
       return;
     }
 
     const holdId = 'holdId' in holdRes ? holdRes.holdId : undefined;
-    setIsConfirmed(true);
-    setTimeout(() => {
-      onConfirmRental({
-        listingId: listing.id,
-        holdId,
-        title: listing.title,
-        category: listing.category,
-        durationMonths: isMonthly ? tenure : undefined,
-        totalAmount: totalPayable,
-        deposit,
-        deliveryAddress: deliveryAddress || listing.location,
-        deliveryType
+
+    // 2. Initialize Order with Razorpay Backend
+    const orderRes = await apiClient.createPaymentOrder({
+      listingId: listing.id,
+      holdId,
+      tenure,
+      deliveryType,
+      studentDiscountApplied
+    });
+
+    if ('error' in orderRes && orderRes.error) {
+      setIsLocking(false);
+      setHoldError(orderRes.error);
+      return;
+    }
+
+    if ('orderId' in orderRes) {
+      const { launchRazorpayCheckout } = await import('../../utils/razorpay');
+      await launchRazorpayCheckout({
+        keyId: orderRes.keyId,
+        orderId: orderRes.orderId,
+        amount: orderRes.amount,
+        name: 'Rently Tri-City',
+        description: `${listing.title} (${tenure} ${isMonthly ? 'Mo' : 'Days'}) + Escrow Deposit`,
+        isMock: orderRes.isMock,
+        onSuccess: async (rzpResponse) => {
+          // 3. Verify Payment Signature & Double-Entry Escrow
+          const verifyRes = await apiClient.verifyPayment({
+            razorpay_order_id: rzpResponse.razorpay_order_id,
+            razorpay_payment_id: rzpResponse.razorpay_payment_id,
+            razorpay_signature: rzpResponse.razorpay_signature,
+            listingId: listing.id,
+            holdId,
+            renterName: 'Rohan Sharma',
+            renterPhone: '9876543210',
+            handoverLocation: deliveryAddress || listing.location,
+            tenure,
+            deliveryType,
+            studentDiscountApplied
+          });
+
+          setIsLocking(false);
+
+          if ('error' in verifyRes && verifyRes.error) {
+            setHoldError(verifyRes.error);
+            return;
+          }
+
+          setConfirmedPaymentId(rzpResponse.razorpay_payment_id);
+          setIsConfirmed(true);
+
+          setTimeout(() => {
+            onConfirmRental({
+              listingId: listing.id,
+              holdId,
+              title: listing.title,
+              category: listing.category,
+              durationMonths: isMonthly ? tenure : undefined,
+              totalAmount: orderRes.breakdown.totalPayable,
+              deposit: orderRes.breakdown.securityDeposit,
+              deliveryAddress: deliveryAddress || listing.location,
+              deliveryType,
+              paymentId: rzpResponse.razorpay_payment_id,
+              paymentStatus: 'ESCROW_HELD'
+            });
+          }, 1200);
+        },
+        onError: (errMsg) => {
+          setIsLocking(false);
+          setHoldError(errMsg);
+        },
+        onDismiss: () => {
+          setIsLocking(false);
+        }
       });
-    }, 1000);
+    }
   };
 
   return (
@@ -257,13 +320,20 @@ export const EquipmentRentalModal: React.FC<EquipmentRentalModalProps> = ({
             <span>Sanitized before dispatch · Deposit refunded within 2 hours of post-semester return</span>
           </div>
 
-          <Button variant="primary" size="lg" fullWidth type="submit" disabled={isLocking}>
+          <Button 
+            variant="primary" 
+            size="lg" 
+            fullWidth 
+            type="submit" 
+            disabled={isLocking}
+            style={{ background: 'linear-gradient(135deg, #059669 0%, #047857 100%)', boxShadow: '0 4px 14px rgba(5, 150, 105, 0.35)' }}
+          >
             {isLocking ? (
               <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center' }}>
-                <Loader2 size={18} className="animate-spin" /> Reserving Asset...
+                <Loader2 size={18} className="animate-spin" /> Launching Razorpay Escrow...
               </span>
             ) : (
-              'Confirm Equipment Reservation'
+              `Pay & Reserve with Razorpay (₹${totalPayable.toLocaleString()})`
             )}
           </Button>
         </form>
@@ -274,11 +344,16 @@ export const EquipmentRentalModal: React.FC<EquipmentRentalModalProps> = ({
           </div>
           <div>
             <h4 style={{ fontSize: '1.3rem', color: 'var(--text-primary)', fontWeight: 800, margin: 0 }}>
-              Equipment Reserved!
+              Payment Verified & Escrow Held!
             </h4>
             <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginTop: '0.35rem' }}>
-              Your reservation for <strong>{listing.title}</strong> is confirmed. Scheduled for handover at {deliveryAddress || listing.location}.
+              Your reservation for <strong>{listing.title}</strong> is confirmed. Scheduled for delivery/handover at {deliveryAddress || listing.location}.
             </p>
+            {confirmedPaymentId && (
+              <div style={{ background: 'var(--surface-secondary)', borderRadius: 'var(--radius-md)', padding: '0.65rem 1rem', border: '1px solid var(--border-subtle)', marginTop: '0.85rem', fontSize: '0.75rem', color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)' }}>
+                Razorpay Payment: {confirmedPaymentId} · Escrow Trust Active
+              </div>
+            )}
           </div>
         </div>
       )}

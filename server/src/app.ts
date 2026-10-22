@@ -6,6 +6,7 @@ import { catalogRoutes } from './domains/catalog/routes.ts';
 import { bookingRoutes } from './domains/bookings/routes.ts';
 import { inspectionRoutes } from './domains/inspection/routes.ts';
 import { ledgerRoutes } from './domains/ledger/routes.ts';
+import { paymentRoutes } from './domains/payments/routes.ts';
 
 export function buildApp(): FastifyInstance {
   const app = fastify({
@@ -37,6 +38,7 @@ export function buildApp(): FastifyInstance {
   app.register(bookingRoutes, { prefix: '/api/v1/bookings' });
   app.register(inspectionRoutes, { prefix: '/api/v1/inspection' });
   app.register(ledgerRoutes, { prefix: '/api/v1/ledger' });
+  app.register(paymentRoutes, { prefix: '/api/v1/payments' });
 
   // Custom 404 handler
   app.setNotFoundHandler((request, reply) => {
@@ -50,7 +52,8 @@ export function buildApp(): FastifyInstance {
         '/api/v1/catalog',
         '/api/v1/bookings',
         '/api/v1/inspection',
-        '/api/v1/ledger'
+        '/api/v1/ledger',
+        '/api/v1/payments'
       ]
     });
   });

@@ -18,11 +18,13 @@ export const CarQuoteModal: React.FC<CarQuoteModalProps> = ({ listing, onClose, 
   const [studentDiscountApplied, setStudentDiscountApplied] = useState(true);
   const [bookingStep, setBookingStep] = useState<'QUOTE' | 'REQUESTED'>('QUOTE');
   
-  // Atomic hold state
+  // Atomic hold & Payment state
   const [activeHoldId, setActiveHoldId] = useState<string | null>(null);
   const [holdError, setHoldError] = useState<string | null>(null);
   const [isLocking, setIsLocking] = useState<boolean>(false);
   const [remainingSeconds, setRemainingSeconds] = useState<number>(900);
+  const [isPaying, setIsPaying] = useState<boolean>(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
 
   // Dynamic countdown timer when hold is active
   useEffect(() => {
@@ -80,6 +82,83 @@ export const CarQuoteModal: React.FC<CarQuoteModalProps> = ({ listing, onClose, 
       apiClient.releaseHold(activeHoldId);
     }
     onClose();
+  };
+
+  const handleRazorpayPayment = async () => {
+    setIsPaying(true);
+    setPaymentError(null);
+
+    // 1. Initialize Order with Backend
+    const orderRes = await apiClient.createPaymentOrder({
+      listingId: listing.id,
+      holdId: activeHoldId || undefined,
+      days: rentalDays,
+      deliveryType,
+      studentDiscountApplied
+    });
+
+    if ('error' in orderRes && orderRes.error) {
+      setIsPaying(false);
+      setPaymentError(orderRes.error);
+      return;
+    }
+
+    if ('orderId' in orderRes) {
+      const { launchRazorpayCheckout } = await import('../utils/razorpay');
+      await launchRazorpayCheckout({
+        keyId: orderRes.keyId,
+        orderId: orderRes.orderId,
+        amount: orderRes.amount,
+        name: 'Rently Tri-City',
+        description: `${listing.title} (${rentalDays} Days) + Escrow Deposit`,
+        isMock: orderRes.isMock,
+        onSuccess: async (rzpResponse) => {
+          // 2. Verify signature & record in Double-Entry Ledger
+          const verifyRes = await apiClient.verifyPayment({
+            razorpay_order_id: rzpResponse.razorpay_order_id,
+            razorpay_payment_id: rzpResponse.razorpay_payment_id,
+            razorpay_signature: rzpResponse.razorpay_signature,
+            listingId: listing.id,
+            holdId: activeHoldId || undefined,
+            renterName: 'Rohan Sharma',
+            renterPhone: '9876543210',
+            handoverLocation: deliveryType === 'DOORSTEP' ? 'Campus / PG Gate' : listing.location,
+            days: rentalDays,
+            deliveryType,
+            studentDiscountApplied
+          });
+
+          setIsPaying(false);
+
+          if ('error' in verifyRes && verifyRes.error) {
+            setPaymentError(verifyRes.error);
+            return;
+          }
+
+          // Advance to Joint Inspection & Handover with payment details
+          onStartInspection({
+            listingId: listing.id,
+            holdId: activeHoldId,
+            title: listing.title,
+            rentalDays,
+            totalPayableNow: orderRes.breakdown.totalPayable,
+            securityDeposit: orderRes.breakdown.securityDeposit,
+            regNumber: listing.carSpecs?.regNumber || 'PB65-AX-7821',
+            operatorName: listing.operator?.name || 'Local Fleet Operator',
+            handoverLocation: deliveryType === 'DOORSTEP' ? 'Your Campus / PG Gate' : listing.location,
+            paymentId: 'paymentId' in verifyRes ? verifyRes.paymentId : rzpResponse.razorpay_payment_id,
+            paymentStatus: 'ESCROW_HELD'
+          });
+        },
+        onError: (errMessage) => {
+          setIsPaying(false);
+          setPaymentError(errMessage);
+        },
+        onDismiss: () => {
+          setIsPaying(false);
+        }
+      });
+    }
   };
 
   const handleSimulateOperatorApproval = () => {
@@ -343,22 +422,72 @@ export const CarQuoteModal: React.FC<CarQuoteModalProps> = ({ listing, onClose, 
               </div>
             </div>
 
-            {/* Test simulator badge */}
-            <div style={{ background: 'var(--surface-secondary)', border: '1px dashed var(--border-focus)', borderRadius: 'var(--radius-md)', padding: '1rem', textAlign: 'left' }}>
-              <div style={{ fontSize: '0.825rem', fontWeight: 700, color: 'var(--border-focus)', marginBottom: '0.35rem' }}>
-                ⚡ Proceed with Verified Hold
+            {paymentError && (
+              <div style={{
+                background: 'rgba(239, 68, 68, 0.12)',
+                border: '1px solid rgba(239, 68, 68, 0.3)',
+                borderRadius: 'var(--radius-md)',
+                padding: '0.85rem 1rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.75rem',
+                color: '#ef4444',
+                fontSize: '0.875rem',
+                textAlign: 'left'
+              }}>
+                <AlertCircle size={18} style={{ flexShrink: 0 }} />
+                <div>
+                  <strong>Payment Issue:</strong> {paymentError}
+                </div>
               </div>
-              <p style={{ fontSize: '0.775rem', color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>
-                Vehicle reservation lock verified. Proceed to digital vehicle walkaround inspection and handover OTP generation.
+            )}
+
+            {/* Razorpay Escrow Checkout Action */}
+            <div style={{ background: 'var(--surface-secondary)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '1.25rem', textAlign: 'left' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <ShieldCheck size={18} color="var(--accent-emerald)" />
+                  Razorpay Escrow Protected
+                </div>
+                <Badge variant="success">Segregated Trust</Badge>
+              </div>
+              <p style={{ fontSize: '0.785rem', color: 'var(--text-secondary)', marginBottom: '1rem', lineHeight: 1.4 }}>
+                Pay total rent & security deposit via Razorpay. Your ₹{securityDeposit.toLocaleString()} deposit is segregated in escrow and auto-refunded to your original source upon return check.
               </p>
-              <Button 
-                variant="primary" 
-                fullWidth
-                disabled={remainingSeconds <= 0}
-                onClick={handleSimulateOperatorApproval}
-              >
-                Proceed to Joint Inspection & Pickup Handover
-              </Button>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <Button 
+                  variant="primary" 
+                  fullWidth
+                  disabled={remainingSeconds <= 0 || isPaying}
+                  onClick={handleRazorpayPayment}
+                  style={{ background: 'linear-gradient(135deg, #059669 0%, #047857 100%)', boxShadow: '0 4px 14px rgba(5, 150, 105, 0.35)' }}
+                >
+                  {isPaying ? (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center' }}>
+                      <Loader2 size={18} className="animate-spin" /> Launching Razorpay...
+                    </span>
+                  ) : (
+                    `Pay & Confirm with Razorpay (₹${totalPayableNow.toLocaleString()})`
+                  )}
+                </Button>
+                <button
+                  type="button"
+                  disabled={remainingSeconds <= 0 || isPaying}
+                  onClick={handleSimulateOperatorApproval}
+                  style={{
+                    background: 'transparent',
+                    border: '1px solid var(--border-standard)',
+                    borderRadius: 'var(--radius-md)',
+                    color: 'var(--text-secondary)',
+                    padding: '0.55rem',
+                    fontSize: '0.78rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  Inspect Vehicle First (On-Site Handover Inspection)
+                </button>
+              </div>
             </div>
           </div>
         )}

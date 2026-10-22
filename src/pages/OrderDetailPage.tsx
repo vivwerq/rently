@@ -1,6 +1,6 @@
 import React from 'react';
 import { 
-  KeyRound, Phone, HelpCircle
+  KeyRound, Phone, HelpCircle, ShieldCheck
 } from 'lucide-react';
 import type { UserOrder } from '../types/order';
 import { Button, Breadcrumbs } from '../components/ui';
@@ -164,6 +164,28 @@ export const OrderDetailPage: React.FC<OrderDetailPageProps> = ({
               <span>Total Paid</span>
               <span style={{ color: 'var(--accent-emerald)' }}>₹{order.totalPayableNow.toLocaleString()}</span>
             </div>
+
+            {order.paymentId && (
+              <div style={{
+                marginTop: '0.85rem',
+                paddingTop: '0.85rem',
+                borderTop: '1px dashed var(--border-subtle)',
+                fontSize: '0.78rem',
+                color: 'var(--text-secondary)'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <ShieldCheck size={13} color="var(--accent-emerald)" />
+                    Gateway Payment ID
+                  </span>
+                  <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}>{order.paymentId}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Escrow Trust Status</span>
+                  <span style={{ color: 'var(--accent-emerald)', fontWeight: 600 }}>Active (Segregated)</span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Action CTAs */}

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
   Clock, MapPin, 
-  KeyRound, Car, Armchair, Repeat, Palette
+  KeyRound, Car, Armchair, Repeat, Palette, ShieldCheck
 } from 'lucide-react';
 import type { UserOrder } from '../types/order';
 import { Button, EmptyState, Breadcrumbs } from '../components/ui';
@@ -127,6 +127,12 @@ export const OrdersPage: React.FC<OrdersPageProps> = ({
                     {order.regNumber && (
                       <div className="order-card-reg-pill">
                         Commercial RC: <strong>{order.regNumber}</strong>
+                      </div>
+                    )}
+                    {order.paymentId && (
+                      <div style={{ fontSize: '0.72rem', color: 'var(--accent-emerald)', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '6px' }}>
+                        <ShieldCheck size={13} />
+                        <span>Razorpay Escrow: {order.paymentId}</span>
                       </div>
                     )}
                   </div>

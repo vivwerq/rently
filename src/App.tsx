@@ -282,7 +282,9 @@ export function App() {
       operatorName: selectedCarForQuote?.operator?.name || 'Rently Fleet Partner',
       regNumber: selectedCarForQuote?.carSpecs?.regNumber || 'PB65-AX-7821',
       primaryImage: selectedCarForQuote?.primaryImage || 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=800&q=80',
-      rentalDuration: `${bookingData.rentalDays || 2} Days`
+      rentalDuration: `${bookingData.rentalDays || 2} Days`,
+      paymentId: bookingData.paymentId,
+      paymentStatus: bookingData.paymentStatus || (bookingData.paymentId ? 'ESCROW_HELD' : undefined)
     };
     saveOrder(newOrder);
     setOrders(getStoredOrders());
@@ -709,7 +711,9 @@ export function App() {
               handoverLocation: bookingData.deliveryAddress || selectedLocality.name,
               operatorName: 'Tri-City Student Rentals',
               primaryImage: bookingData.primaryImage || selectedEquipmentForRent.primaryImage,
-              rentalDuration: `${bookingData.durationMonths || 3} Months`
+              rentalDuration: `${bookingData.durationMonths || 3} Months`,
+              paymentId: bookingData.paymentId,
+              paymentStatus: bookingData.paymentStatus || (bookingData.paymentId ? 'ESCROW_HELD' : undefined)
             };
             saveOrder(orderPayload);
             setOrders(getStoredOrders());

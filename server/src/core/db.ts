@@ -85,6 +85,9 @@ export interface ServerOrder {
   buyerContact?: string;
   customText?: string;
   leadDays?: number;
+  paymentId?: string;
+  paymentStatus?: 'PAID' | 'ESCROW_HELD' | 'REFUNDED';
+  razorpayOrderId?: string;
 }
 
 export interface InspectionRecord {
