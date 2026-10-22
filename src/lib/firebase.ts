@@ -4,6 +4,8 @@ import {
   GoogleAuthProvider, 
   type Auth 
 } from 'firebase/auth';
+import { getFirestore, type Firestore } from 'firebase/firestore';
+import { getStorage, type FirebaseStorage } from 'firebase/storage';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -21,6 +23,9 @@ export const isFirebaseConfigured = (): boolean => {
 
 let app: FirebaseApp | undefined;
 let auth: Auth | undefined;
+let db: Firestore | undefined;
+let storage: FirebaseStorage | undefined;
+
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({
   prompt: 'select_account'
@@ -30,8 +35,11 @@ if (isFirebaseConfigured()) {
   try {
     app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
     auth = getAuth(app);
+    db = getFirestore(app);
+    storage = getStorage(app);
+    console.info('[Rently Firebase] Initialized Firebase Auth, Firestore, and Storage.');
   } catch (err) {
-    console.warn('[Rently Firebase] Initialization failed, falling back to local demo auth engine:', err);
+    console.warn('[Rently Firebase] Initialization failed, falling back to local demo engine:', err);
   }
 } else {
   // Graceful fallback for local development before .env is populated
@@ -39,4 +47,5 @@ if (isFirebaseConfigured()) {
   console.info('[Rently Auth] Running in Local Demo Auth Mode. To link live Firebase, populate .env variables from .env.example.');
 }
 
-export { app, auth, googleProvider };
+export { app, auth, db, storage, googleProvider };
+

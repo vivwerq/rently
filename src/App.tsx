@@ -24,7 +24,8 @@ import { useAuth } from './context/useAuth';
 import { MobileSimulatorView } from './components/MobileSimulatorView';
 import { AdminConsoleDrawer } from './components/AdminConsoleDrawer';
 import { MobileBottomTabBar } from './components/MobileBottomTabBar';
-import { getStoredOrders, saveOrder, updateOrderStatus, removeOrder } from './utils/orderStorage';
+import { getStoredOrders, saveOrder, updateOrderStatus, removeOrder, subscribeToCloudOrders } from './utils/orderStorage';
+import { listingManagerService } from './services/listingManagerService';
 import { getUserCreatedListings } from './services/catalogService';
 import type { UserOrder } from './types/order';
 import type { RentalDateRange } from './components/search/RentalDateRangeModal';
@@ -178,6 +179,19 @@ export function App() {
   }, [activeBooking]);
 
   const [orders, setOrders] = useState<UserOrder[]>(() => getStoredOrders());
+  
+  // Real-time Cloud Firestore synchronization
+  useEffect(() => {
+    const unsubOrders = subscribeToCloudOrders((cloudOrders) => {
+      setOrders(cloudOrders);
+    });
+    const unsubListings = listingManagerService.subscribeToRemoteListings();
+    return () => {
+      unsubOrders();
+      unsubListings();
+    };
+  }, []);
+
   const activeOrdersCount = orders.filter(
     o => o.status === 'CONFIRMED' || o.status === 'HANDOVER_IN_PROGRESS' || o.status === 'ACTIVE_TRIP'
   ).length;

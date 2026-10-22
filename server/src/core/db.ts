@@ -1,3 +1,5 @@
+import { getAdminDb } from './firebaseAdmin.ts';
+
 export interface Coordinates {
   lat: number;
   lng: number;
@@ -435,6 +437,12 @@ class DatabaseStore {
 
   public addListing(item: ListingItem): ListingItem {
     this.listings.set(item.id, item);
+    const adminDb = getAdminDb();
+    if (adminDb) {
+      adminDb.collection('listings').doc(item.id).set(item, { merge: true }).catch(err => {
+        console.warn('[Firebase Admin] Failed to sync listing to Firestore:', err);
+      });
+    }
     return item;
   }
 
@@ -471,6 +479,14 @@ class DatabaseStore {
     };
 
     this.availabilityHolds.set(holdId, hold);
+
+    const adminDb = getAdminDb();
+    if (adminDb) {
+      adminDb.collection('holds').doc(holdId).set(hold, { merge: true }).catch(err => {
+        console.warn('[Firebase Admin] Failed to sync hold to Firestore:', err);
+      });
+    }
+
     return hold;
   }
 
@@ -478,6 +494,12 @@ class DatabaseStore {
     const hold = this.availabilityHolds.get(holdId);
     if (hold && hold.status === 'HOLD_ACTIVE' && hold.expiresAt > Date.now()) {
       hold.status = 'CONFIRMED';
+      const adminDb = getAdminDb();
+      if (adminDb) {
+        adminDb.collection('holds').doc(holdId).update({ status: 'CONFIRMED' }).catch(err => {
+          console.warn('[Firebase Admin] Failed to confirm hold in Firestore:', err);
+        });
+      }
       return true;
     }
     return false;
@@ -503,6 +525,12 @@ class DatabaseStore {
 
   public saveOrder(order: ServerOrder): ServerOrder {
     this.orders.set(order.id, order);
+    const adminDb = getAdminDb();
+    if (adminDb) {
+      adminDb.collection('bookings').doc(order.id).set(order, { merge: true }).catch(err => {
+        console.warn('[Firebase Admin] Failed to persist booking to Firestore:', err);
+      });
+    }
     return order;
   }
 
@@ -510,6 +538,15 @@ class DatabaseStore {
     const order = this.orders.get(id);
     if (order) {
       order.status = status;
+      const adminDb = getAdminDb();
+      if (adminDb) {
+        adminDb.collection('bookings').doc(id).update({
+          status,
+          updatedAt: new Date().toISOString()
+        }).catch(err => {
+          console.warn('[Firebase Admin] Failed to update booking status in Firestore:', err);
+        });
+      }
       return order;
     }
     return null;
@@ -519,6 +556,12 @@ class DatabaseStore {
     const existing = this.inspections.get(record.orderId) || [];
     existing.push(record);
     this.inspections.set(record.orderId, existing);
+    const adminDb = getAdminDb();
+    if (adminDb) {
+      adminDb.collection('inspections').add(record).catch(err => {
+        console.warn('[Firebase Admin] Failed to record inspection in Firestore:', err);
+      });
+    }
   }
 
   public getInspections(orderId: string): InspectionRecord[] {

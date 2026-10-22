@@ -1,6 +1,14 @@
 import { LOCALITIES } from '../data/mockData';
 import type { ListingItem, LocalityOption } from '../data/mockData';
 import type { RentlyUserProfile } from '../types/auth';
+import { db, isFirebaseConfigured } from '../lib/firebase';
+import { 
+  collection, 
+  doc, 
+  setDoc, 
+  deleteDoc, 
+  onSnapshot 
+} from 'firebase/firestore';
 
 export const PUBLISHED_LISTINGS_KEY = 'rently_published_listings_v1';
 export const LOCAL_CACHE_LISTINGS_KEY = 'rently_local_cached_listings_v1';
@@ -237,6 +245,11 @@ export const listingManagerService = {
     if (isPublishOnline) {
       const current = this.getPublishedListings();
       writeStorageList(PUBLISHED_LISTINGS_KEY, [newListing, ...current]);
+      if (isFirebaseConfigured() && db) {
+        setDoc(doc(db, 'listings', newListing.id), newListing).catch(err => {
+          console.warn('[Firestore] Failed to publish listing to cloud:', err);
+        });
+      }
     } else {
       const current = this.getLocalCachedListings();
       writeStorageList(LOCAL_CACHE_LISTINGS_KEY, [newListing, ...current]);
@@ -291,6 +304,12 @@ export const listingManagerService = {
     const publishedList = this.getPublishedListings();
     writeStorageList(PUBLISHED_LISTINGS_KEY, [publishedItem, ...publishedList]);
 
+    if (isFirebaseConfigured() && db) {
+      setDoc(doc(db, 'listings', publishedItem.id), publishedItem).catch(err => {
+        console.warn('[Firestore] Failed to publish draft to cloud:', err);
+      });
+    }
+
     return { success: true, item: publishedItem };
   },
 
@@ -310,6 +329,13 @@ export const listingManagerService = {
       updatedAt: new Date().toISOString()
     };
     writeStorageList(PUBLISHED_LISTINGS_KEY, published);
+
+    if (isFirebaseConfigured() && db) {
+      setDoc(doc(db, 'listings', id), { status: newStatus, updatedAt: published[idx].updatedAt }, { merge: true }).catch(err => {
+        console.warn('[Firestore] Failed to update listing pause status:', err);
+      });
+    }
+
     return published[idx];
   },
 
@@ -322,6 +348,11 @@ export const listingManagerService = {
     if (pubIdx !== -1) {
       published[pubIdx] = { ...published[pubIdx], ...updates, updatedAt: new Date().toISOString() };
       writeStorageList(PUBLISHED_LISTINGS_KEY, published);
+      if (isFirebaseConfigured() && db) {
+        setDoc(doc(db, 'listings', id), updates, { merge: true }).catch(err => {
+          console.warn('[Firestore] Failed to update listing on cloud:', err);
+        });
+      }
       return published[pubIdx];
     }
 
@@ -344,6 +375,11 @@ export const listingManagerService = {
     const pubFiltered = published.filter(i => i.id !== id);
     if (pubFiltered.length !== published.length) {
       writeStorageList(PUBLISHED_LISTINGS_KEY, pubFiltered);
+      if (isFirebaseConfigured() && db) {
+        deleteDoc(doc(db, 'listings', id)).catch(err => {
+          console.warn('[Firestore] Failed to delete listing from cloud:', err);
+        });
+      }
       return true;
     }
 
@@ -388,7 +424,49 @@ export const listingManagerService = {
     writeStorageList(PUBLISHED_LISTINGS_KEY, [...newlyPublished, ...published]);
     writeStorageList(LOCAL_CACHE_LISTINGS_KEY, []);
 
+    if (isFirebaseConfigured() && db) {
+      for (const item of newlyPublished) {
+        setDoc(doc(db, 'listings', item.id), item).catch(err => {
+          console.warn('[Firestore] Failed to batch sync listing to cloud:', err);
+        });
+      }
+    }
+
     return { publishedCount: newlyPublished.length };
+  },
+
+  /**
+   * Real-time subscription to cloud marketplace listings from Firestore.
+   * Enables peer-to-peer live discovery across devices.
+   */
+  subscribeToRemoteListings(callback?: (items: ListingItem[]) => void): () => void {
+    if (!isFirebaseConfigured() || !db) {
+      return () => {};
+    }
+
+    try {
+      const colRef = collection(db, 'listings');
+      return onSnapshot(colRef, (snapshot) => {
+        const remoteItems: ListingItem[] = [];
+        snapshot.forEach(docSnap => {
+          remoteItems.push(docSnap.data() as ListingItem);
+        });
+
+        if (remoteItems.length > 0) {
+          const local = readStorageList(PUBLISHED_LISTINGS_KEY, []);
+          const remoteIds = new Set(remoteItems.map(i => i.id));
+          const localOnly = local.filter(i => !remoteIds.has(i.id));
+          const merged = [...remoteItems, ...localOnly];
+          writeStorageList(PUBLISHED_LISTINGS_KEY, merged);
+          if (callback) callback(merged);
+        }
+      }, (err) => {
+        console.warn('[Firestore] Listing sync listener warning:', err);
+      });
+    } catch (e) {
+      console.warn('[Firestore] Could not initiate listing listener:', e);
+      return () => {};
+    }
   },
 
   /**

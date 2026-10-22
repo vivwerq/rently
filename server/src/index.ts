@@ -1,4 +1,15 @@
+import * as dotenv from 'dotenv';
+import * as path from 'path';
+import * as fs from 'fs';
+
+dotenv.config();
+const rootEnvPath = path.resolve(process.cwd(), '../.env');
+if (fs.existsSync(rootEnvPath)) {
+  dotenv.config({ path: rootEnvPath });
+}
+
 import { buildApp } from './app.ts';
+import './core/firebaseAdmin.ts';
 
 const PORT = parseInt(process.env.PORT || '3001', 10);
 const HOST = process.env.HOST || '0.0.0.0';

@@ -1,4 +1,13 @@
 import type { UserOrder } from '../types/order';
+import { db, isFirebaseConfigured } from '../lib/firebase';
+import { 
+  collection, 
+  doc, 
+  setDoc, 
+  updateDoc, 
+  deleteDoc, 
+  onSnapshot 
+} from 'firebase/firestore';
 
 const STORAGE_KEY = 'rently_user_orders_v1';
 
@@ -65,8 +74,16 @@ export function saveOrder(newOrder: Omit<UserOrder, 'id' | 'createdAt' | 'handov
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
   } catch (e) {
-    console.warn('Could not save order to storage', e);
+    console.warn('Could not save order to local storage', e);
   }
+
+  // Cloud Firestore Persistence
+  if (isFirebaseConfigured() && db) {
+    setDoc(doc(db, 'bookings', order.id), order, { merge: true }).catch(err => {
+      console.warn('[Firestore] Failed to persist order to cloud:', err);
+    });
+  }
+
   return order;
 }
 
@@ -76,7 +93,17 @@ export function updateOrderStatus(orderId: string, status: UserOrder['status']):
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
   } catch (e) {
-    console.warn('Could not update order', e);
+    console.warn('Could not update order locally', e);
+  }
+
+  // Cloud Firestore Persistence
+  if (isFirebaseConfigured() && db) {
+    updateDoc(doc(db, 'bookings', orderId), { 
+      status, 
+      updatedAt: new Date().toISOString() 
+    }).catch(err => {
+      console.warn('[Firestore] Failed to update order status in cloud:', err);
+    });
   }
 }
 
@@ -86,7 +113,50 @@ export function removeOrder(orderId: string): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
   } catch (e) {
-    console.warn('Could not remove order', e);
+    console.warn('Could not remove order locally', e);
+  }
+
+  // Cloud Firestore Deletion
+  if (isFirebaseConfigured() && db) {
+    deleteDoc(doc(db, 'bookings', orderId)).catch(err => {
+      console.warn('[Firestore] Failed to delete order in cloud:', err);
+    });
+  }
+}
+
+/**
+ * Real-time listener for user orders from Firestore.
+ * Automatically synchronizes booking status across browsers & devices.
+ */
+export function subscribeToCloudOrders(callback?: (orders: UserOrder[]) => void): () => void {
+  if (!isFirebaseConfigured() || !db) {
+    return () => {};
+  }
+
+  try {
+    const bookingsCol = collection(db, 'bookings');
+    return onSnapshot(bookingsCol, (snapshot) => {
+      const cloudOrders: UserOrder[] = [];
+      snapshot.forEach(docSnap => {
+        cloudOrders.push(docSnap.data() as UserOrder);
+      });
+
+      if (cloudOrders.length > 0) {
+        const local = getStoredOrders();
+        const cloudIds = new Set(cloudOrders.map(o => o.id));
+        const localOnly = local.filter(o => !cloudIds.has(o.id));
+        const merged = [...cloudOrders, ...localOnly];
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+        } catch {}
+        if (callback) callback(merged);
+      }
+    }, (err) => {
+      console.warn('[Firestore] Bookings subscription warning:', err);
+    });
+  } catch (e) {
+    console.warn('[Firestore] Could not initiate bookings subscription:', e);
+    return () => {};
   }
 }
 
@@ -95,3 +165,4 @@ export function resetAllDemoData(): void {
   localStorage.removeItem('rently_saved_favorites');
   localStorage.removeItem('rently_active_booking');
 }
+

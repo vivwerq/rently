@@ -8,7 +8,8 @@ import {
   type User,
   type UserCredential
 } from 'firebase/auth';
-import { auth, googleProvider, isFirebaseConfigured } from '../lib/firebase';
+import { auth, db, googleProvider, isFirebaseConfigured } from '../lib/firebase';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 import type { 
   RentlyUserProfile, 
   StudentVerificationDetails 
@@ -65,18 +66,24 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   });
   const [isLoading, setIsLoading] = useState<boolean>(isFirebaseActive);
 
-  // Sync profile changes to localStorage
+  // Sync profile changes to localStorage and Cloud Firestore
   useEffect(() => {
     try {
       if (profile) {
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(profile));
+        // Sync to Cloud Firestore users collection
+        if (isFirebaseActive && db && profile.uid) {
+          setDoc(doc(db, 'users', profile.uid), profile, { merge: true }).catch(err => {
+            console.warn('[Firestore] Failed to sync user profile to cloud:', err);
+          });
+        }
       } else {
         localStorage.removeItem(LOCAL_STORAGE_KEY);
       }
     } catch (e) {
       console.warn('Failed to sync profile to localStorage', e);
     }
-  }, [profile]);
+  }, [profile, isFirebaseActive]);
 
   // Firebase auth listener
   useEffect(() => {
@@ -84,7 +91,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       return;
     }
 
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
       if (firebaseUser) {
         // Detect student institutional domains automatically
@@ -95,7 +102,29 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                                email.includes('pu.ac') || 
                                email.includes('pec.edu');
 
+        let cloudProfile: RentlyUserProfile | null = null;
+        if (db) {
+          try {
+            const userSnap = await getDoc(doc(db, 'users', firebaseUser.uid));
+            if (userSnap.exists()) {
+              cloudProfile = userSnap.data() as RentlyUserProfile;
+            }
+          } catch (e) {
+            console.warn('[Firestore] Could not load user doc:', e);
+          }
+        }
+
         setProfile(prev => {
+          if (cloudProfile) {
+            return {
+              ...cloudProfile,
+              uid: firebaseUser.uid,
+              displayName: firebaseUser.displayName || cloudProfile.displayName,
+              email: firebaseUser.email || cloudProfile.email,
+              photoURL: firebaseUser.photoURL || cloudProfile.photoURL
+            };
+          }
+
           const base: RentlyUserProfile = prev || {
             uid: firebaseUser.uid,
             displayName: firebaseUser.displayName || 'Campus Renter',
