@@ -41,8 +41,8 @@ export const PWAInstallBanner: React.FC = () => {
 
     // 4. Also show banner on mobile Safari/iOS after a short delay if not standalone
     const isIos = /iPhone|iPad|iPod/.test(navigator.userAgent);
-    let timer: NodeJS.Timeout | null = null;
-    if (isIos && !isStandalone) {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    if (isIos && !isInstalled) {
       timer = setTimeout(() => {
         setIsVisible(true);
       }, 3000);

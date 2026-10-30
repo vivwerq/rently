@@ -133,7 +133,7 @@ export const InspectionModal: React.FC<InspectionModalProps> = ({
   const operatorName = bookingData?.operatorName || 'Tricity SelfDrive Mobility';
   const securityDeposit = bookingData?.securityDeposit || 2400;
   const handoverLocation = bookingData?.handoverLocation || 'Mohali Phase 7 (Operator Hub)';
-  const pickupOtp = bookingData?.handoverOtp || '482910';
+  const pickupOtp: string = String(bookingData?.handoverOtp || '482910');
 
   const [activeStep, setActiveStep] = useState<
     'PICKUP_INSPECTION' | 'PICKUP_OTP' | 'ACTIVE_TRIP' | 'RETURN_INSPECTION' | 'RETURN_OTP' | 'DEPOSIT_RELEASED'
@@ -638,7 +638,7 @@ export const InspectionModal: React.FC<InspectionModalProps> = ({
                 Renter's Secret Handover OTP
               </div>
               <div className="otp-digit-group">
-                {pickupOtp.split('').map((digit, idx) => (
+                {pickupOtp.split('').map((digit: string, idx: number) => (
                   <div key={idx} className="otp-box">{digit}</div>
                 ))}
               </div>
