@@ -1,0 +1,66 @@
+{
+  "id": "/",
+  "name": "Rently · Hyperlocal Tricity Marketplace & Rentals",
+  "short_name": "Rently",
+  "description": "Hyperlocal peer-to-peer car rentals, campus dorm essentials, secondhand marketplace, and local artisan hub across Chandigarh, Mohali, Kharar & Zirakpur.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#09090b",
+  "theme_color": "#059669",
+  "categories": [
+    "lifestyle",
+    "shopping",
+    "travel"
+  ],
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Self-Drive Cars",
+      "short_name": "Cars",
+      "description": "Rent self-drive cars from verified fleet operators",
+      "url": "/#/?category=CAR",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Campus Dorm Setups",
+      "short_name": "Campus",
+      "description": "Semester rentals for coolers, mattresses & study desks",
+      "url": "/#/?category=ROOM_ESSENTIAL",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Active Orders & OTP",
+      "short_name": "Orders",
+      "description": "View active bookings, handover OTP, and deposit status",
+      "url": "/#/orders",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

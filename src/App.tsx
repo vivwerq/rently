@@ -24,6 +24,7 @@ import { useAuth } from './context/useAuth';
 import { MobileSimulatorView } from './components/MobileSimulatorView';
 import { AdminConsoleDrawer } from './components/AdminConsoleDrawer';
 import { MobileBottomTabBar } from './components/MobileBottomTabBar';
+import { PWAInstallBanner } from './components/PWAInstallBanner';
 import { getStoredOrders, saveOrder, updateOrderStatus, removeOrder, subscribeToCloudOrders } from './utils/orderStorage';
 import { listingManagerService } from './services/listingManagerService';
 import { getUserCreatedListings } from './services/catalogService';
@@ -842,6 +843,8 @@ export function App() {
         }}
         actionPromptText={authModalPrompt}
       />
+
+      <PWAInstallBanner />
     </div>
   );
 }
